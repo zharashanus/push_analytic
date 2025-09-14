@@ -592,11 +592,11 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
     
     print(f"🏆 Топ-3: {[n.get('product_name', 'Unknown') for n in notifications[:3]]}")
     
-    # Убеждаемся, что возвращаем список, даже если он пустой
-    if not notifications:
-        print("⚠️ Нет уведомлений")
-        return []
-    
+        # Убеждаемся, что возвращаем список, даже если он пустой
+        if not notifications:
+            print("⚠️ Нет уведомлений")
+            return []
+        
         print(f"✅ Анализ завершен: {len(notifications)} уведомлений за {time.time() - start_time:.1f}с")
         print(f"🔍 Возвращаем notifications: {type(notifications)}, длина: {len(notifications)}")
         return notifications
