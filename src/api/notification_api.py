@@ -33,12 +33,12 @@ api = Api(
 @app.route('/swagger.json')
 def swagger_json():
     """Swagger JSON definition"""
-    return api.as_json()
+    return api.__schema__
 
 @app.route('/api/v1/swagger.json')
 def api_swagger_json():
     """API Swagger JSON definition"""
-    return api.as_json()
+    return api.__schema__
 
 # Создаем namespace для API
 ns = Namespace('analytics', description='Операции анализа клиентов')
