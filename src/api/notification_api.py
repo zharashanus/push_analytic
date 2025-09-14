@@ -294,15 +294,15 @@ class TestDatabaseStatus(Resource):
 
 @ns.route('/test/random')
 class TestRandomClient(Resource):
-    @ns.marshal_with(all_analysis_response_model, code=200)
-    @ns.marshal_with(error_model, code=400)
-    @ns.marshal_with(error_model, code=500)
     @ns.doc(tags=['Тестирование'])
     def get(self):
         """Быстрый анализ случайного клиента с таймаутом"""
+        print("🚀 НАЧИНАЕМ БЫСТРЫЙ АНАЛИЗ")
         try:
+            print("🔧 Создаем менеджер БД...")
             # Создаем реальный менеджер БД
             db_manager = RealDatabaseManager()
+            print("✅ Менеджер БД создан")
             
             if not db_manager.connection:
                 return {'error': 'Не удалось подключиться к базе данных'}, 500
@@ -316,8 +316,14 @@ class TestRandomClient(Resource):
             print(f"🎯 Анализируем клиента: {client_code}")
             
             # Быстрый анализ только топ-5 продуктов
-            from .analyzer import analyze_client_fast
-            notifications = analyze_client_fast(client_code, 90, db_manager)
+            try:
+                from .analyzer import analyze_client_fast
+                notifications = analyze_client_fast(client_code, 90, db_manager)
+            except ImportError as e:
+                print(f"❌ Ошибка импорта: {e}")
+                # Используем старую функцию как запасной вариант
+                notifications = analyze_client_with_scenarios(client_code, 90, db_manager)
+                notifications = notifications[:5]  # Берем только топ-5
             
             print(f"📈 Получено: {len(notifications) if notifications else 0} уведомлений")
             
@@ -348,7 +354,11 @@ class TestRandomClient(Resource):
             return result
             
         except Exception as e:
-            print(f"❌ ОШИБКА: {str(e)}")
+            print(f"❌ КРИТИЧЕСКАЯ ОШИБКА В ENDPOINT: {str(e)}")
+            print(f"❌ Тип ошибки: {type(e).__name__}")
+            import traceback
+            print(f"❌ Полный traceback:")
+            traceback.print_exc()
             return {'error': f'Ошибка: {str(e)}'}, 500
 
 
