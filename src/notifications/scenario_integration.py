@@ -29,46 +29,61 @@ class ScenarioIntegration:
         Returns:
             Персонализированное уведомление
         """
-        print(f"💬 Генерируем уведомление для продукта: {product_name}")
-        
-        client_info = client_data.get('client_info', {})
-        client_name = client_info.get('name', 'Клиент')
-        print(f"👤 Имя клиента: {client_name}")
-        
-        # Извлекаем данные из сценария
-        score = scenario_result.get('score', 0)
-        reasons = scenario_result.get('reasons', [])
-        expected_benefit = scenario_result.get('expected_benefit', 0)
-        print(f"📊 Скор: {score}, причины: {len(reasons)}, выгода: {expected_benefit}")
-        
-        # Определяем тип продукта
-        product_type = self._map_product_to_type(product_name)
-        print(f"🏷️ Тип продукта: {product_type}")
-        
-        # Генерируем персонализированное сообщение
-        message = self._generate_personalized_message(
-            client_name, product_type, client_data, 
-            scenario_result, expected_benefit
-        )
-        print(f"💬 Сообщение сгенерировано: {message[:50]}...")
-        
-        # Валидируем сообщение
-        validated_message = self._validate_message(message)
-        print(f"✅ Сообщение валидировано: {len(validated_message)} символов")
-        
-        return {
-            'message': validated_message,
-            'product_type': product_type,
-            'product_name': product_name,
-            'client_name': client_name,
-            'score': score,
-            'expected_benefit': expected_benefit,
-            'reasons': reasons,
-            'length': len(validated_message),
-            'priority': self._calculate_priority(score, expected_benefit),
-            'channels': self._get_recommended_channels(client_info),
-            'personalization': self._get_personalization_level(reasons)
-        }
+        try:
+            print(f"💬 Генерируем уведомление для продукта: {product_name}")
+            
+            client_info = client_data.get('client_info', {})
+            client_name = client_info.get('name', 'Клиент')
+            print(f"👤 Имя клиента: {client_name}")
+            
+            # Извлекаем данные из сценария
+            score = scenario_result.get('score', 0)
+            reasons = scenario_result.get('reasons', [])
+            expected_benefit = scenario_result.get('expected_benefit', 0)
+            print(f"📊 Скор: {score}, причины: {len(reasons)}, выгода: {expected_benefit}")
+            
+            # Определяем тип продукта
+            product_type = self._map_product_to_type(product_name)
+            print(f"🏷️ Тип продукта: {product_type}")
+            
+            # Генерируем персонализированное сообщение
+            print(f"🔧 Начинаем генерацию сообщения для {product_type}")
+            message = self._generate_personalized_message(
+                client_name, product_type, client_data, 
+                scenario_result, expected_benefit
+            )
+            print(f"💬 Сообщение сгенерировано: {message[:50]}...")
+            
+            # Валидируем сообщение
+            print(f"🔧 Начинаем валидацию сообщения")
+            validated_message = self._validate_message(message)
+            print(f"✅ Сообщение валидировано: {len(validated_message)} символов")
+            
+            # Создаем результат
+            print(f"🔧 Создаем результат уведомления")
+            result = {
+                'message': validated_message,
+                'product_type': product_type,
+                'product_name': product_name,
+                'client_name': client_name,
+                'score': score,
+                'expected_benefit': expected_benefit,
+                'reasons': reasons,
+                'length': len(validated_message),
+                'priority': self._calculate_priority(score, expected_benefit),
+                'channels': self._get_recommended_channels(client_info),
+                'personalization': self._get_personalization_level(reasons)
+            }
+            print(f"✅ Результат уведомления создан: {list(result.keys())}")
+            return result
+            
+        except Exception as e:
+            print(f"❌ Ошибка в generate_notification_from_scenario: {e}")
+            print(f"❌ Тип ошибки: {type(e).__name__}")
+            import traceback
+            print(f"❌ Полный traceback:")
+            traceback.print_exc()
+            raise
     
     def _map_product_to_type(self, product_name: str) -> str:
         """Маппинг названия продукта на тип с поддержкой новых шаблонов"""
@@ -256,6 +271,10 @@ class ScenarioIntegration:
         elif product_type == 'monthly_balance':
             context['balance'] = self.templates.format_amount(avg_balance)
             context['interest'] = self.templates.format_amount(avg_balance * 0.01)  # 1% в месяц
+        
+        elif product_type == 'gold_bars':
+            context['amount'] = self.templates.format_amount(100000)
+            context['balance'] = self.templates.format_amount(avg_balance)
         
         return context
     
