@@ -13,12 +13,24 @@ class NotificationAI:
     def __init__(self):
         self.templates = MessageTemplates()
         self.rules = {
-            'max_length': 220,  # Максимальная длина для пушей
+            'max_length': 220,  # Максимальная длина для пушей (180-220)
             'min_length': 50,   # Минимальная длина
-            'max_emoji': 1,     # Максимум эмодзи
-            'max_exclamation': 1,  # Максимум восклицательных знаков
-            'currency_format': '₸',  # Формат валюты
-            'date_format': 'dd.mm.yyyy'  # Формат даты
+            'max_emoji': 1,     # Максимум эмодзи (0-1 по смыслу)
+            'max_exclamation': 1,  # Максимум восклицательных знаков (один максимум)
+            'currency_format': '₸',  # Формат валюты (единый формат)
+            'date_format': 'dd.mm.yyyy',  # Формат даты (дд.мм.гггг)
+            'number_format': 'comma_space',  # Разряды — пробелы, дробная часть — запятая
+            'no_caps': True,  # Без КАПС
+            'action_verbs': ['открыть', 'настроить', 'посмотреть', 'оформить', 'узнать', 'попробовать', 'проверить', 'подключить', 'начать'],  # Глаголы действия
+            'tone_requirements': {
+                'personal_context': True,  # Персональный контекст (наблюдение по тратам/поведению)
+                'benefit_explanation': True,  # Польза/объяснение (как продукт решает задачу)
+                'friendly_tone': True,  # На равных, просто и по-человечески; доброжелательно
+                'no_drama': True,  # Без драматизации и морали
+                'important_first': True,  # Важное — в начало, без воды/канцеляризмов
+                'light_humor': True,  # Допустим лёгкий, ненавязчивый юмор
+                'no_pressure': True  # Никаких «крикливых» обещаний/давления
+            }
         }
     
     def generate_notification(self, client_data: Dict, product_data: Dict, 
@@ -217,20 +229,32 @@ class NotificationAI:
         return template
     
     def _validate_message(self, message: str, tone: Dict) -> str:
-        """Валидация и корректировка сообщения"""
-        # Проверяем длину
+        """Валидация и корректировка сообщения согласно TOV"""
+        # Проверяем длину (180-220 символов для пушей)
         if len(message) > self.rules['max_length']:
             message = message[:self.rules['max_length'] - 3] + '...'
+        elif len(message) < 50:
+            message = message + ' Узнать подробнее?'
         
-        # Убираем лишние восклицательные знаки
+        # Убираем лишние восклицательные знаки (максимум 1)
         exclamation_count = message.count('!')
         if exclamation_count > self.rules['max_exclamation']:
             # Оставляем только первый восклицательный знак
             message = message.replace('!', '', exclamation_count - 1)
         
-        # Убираем КАПС
+        # Убираем КАПС (строго запрещено)
         if message.isupper():
             message = message.capitalize()
+        
+        # Убираем лишние пробелы
+        message = ' '.join(message.split())
+        
+        # Проверяем форматирование валюты (разряд и знак валюты отделяем пробелом)
+        message = message.replace('₸₸', '₸')
+        message = message.replace('₸', ' ₸').replace('  ₸', ' ₸')
+        
+        # Убираем лишние символы валюты
+        message = message.replace('₸ ₸', '₸')
         
         return message
     
