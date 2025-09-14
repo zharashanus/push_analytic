@@ -41,7 +41,7 @@ def api_swagger_json():
     return api.__schema__
 
 # Создаем namespace для API
-ns = Namespace('analytics', description='Операции анализа клиентов')
+ns = Namespace('', description='Операции анализа клиентов')
 api.add_namespace(ns)
 
 # Модели данных для Swagger
@@ -74,10 +74,7 @@ transfer_model = api.model('Transfer', {
 analysis_response_model = api.model('AnalysisResponse', {
     'client_code': fields.Integer(description='Код клиента'),
     'product': fields.String(description='Рекомендуемый продукт'),
-    'push_notification': fields.String(description='Текст push-уведомления'),
-    'score': fields.Float(description='Скор продукта'),
-    'expected_benefit': fields.Float(description='Ожидаемая выгода'),
-    'priority': fields.String(description='Приоритет рекомендации')
+    'push_notification': fields.String(description='Текст push-уведомления')
 })
 
 recommendation_model = api.model('Recommendation', {
@@ -162,10 +159,7 @@ class AnalyzeClient(Resource):
                 return {
                     'client_code': client_code,
                     'product': 'Нет подходящих продуктов',
-                    'push_notification': 'У вас пока нет подходящих продуктов. Мы уведомим, когда появятся новые предложения.',
-                    'score': 0,
-                    'expected_benefit': 0,
-                    'priority': 'low'
+                    'push_notification': 'У вас пока нет подходящих продуктов. Мы уведомим, когда появятся новые предложения.'
                 }
             
             best_notification = notifications[0]
@@ -173,10 +167,7 @@ class AnalyzeClient(Resource):
             return {
                 'client_code': client_code,
                 'product': best_notification.get('product_name', ''),
-                'push_notification': best_notification.get('message', ''),
-                'score': best_notification.get('analysis_score', 0),
-                'expected_benefit': best_notification.get('expected_benefit', 0),
-                'priority': best_notification.get('priority', 'low')
+                'push_notification': best_notification.get('message', '')
             }
             
         except Exception as e:

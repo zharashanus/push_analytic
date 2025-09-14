@@ -17,7 +17,7 @@ services:
     ports:
       - "7777:5000"  # push_analytic на порту 7777
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/analytics/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
