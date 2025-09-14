@@ -43,22 +43,17 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
         print(f"❌ Ошибка создания сценариев: {e}")
         return []
     
-    print(f"📊 Доступно сценариев: {len(scenarios)}")
-    print(f"🔍 Список сценариев: {list(scenarios.keys())}")
+    print(f"📊 Анализируем {len(scenarios)} продуктов...")
     
     for product_key, scenario in scenarios.items():
         try:
-            # Проверяем таймаут (максимум 30 секунд)
-            if time.time() - start_time > 30:
-                print(f"⏰ Таймаут анализа достигнут, завершаем с {len(notifications)} уведомлениями")
+            # Проверяем таймаут (максимум 15 секунд)
+            if time.time() - start_time > 15:
+                print(f"⏰ Таймаут, завершаем с {len(notifications)} продуктами")
                 break
                 
-            print(f"🔍 {product_key}...", end=" ")
-            
             # Анализируем клиента
             scenario_result = scenario.analyze_client(client_code, days, db_manager)
-            
-            # Получаем данные клиента
             client_data = scenario.get_client_data(client_code, days, db_manager)
             
             # Генерируем уведомление
@@ -74,39 +69,26 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
             })
             
             notifications.append(notification)
-            print(f"✅ {product_key}")
             
         except Exception as e:
-            print(f"❌ ОШИБКА в {product_key}: {type(e).__name__}: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"❌ {product_key}: {e}")
             # Продолжаем анализ других продуктов
             continue
     
-    print(f"🔄 Цикл завершен: {len(notifications)} уведомлений")
-    print(f"🔍 Список уведомлений: {[n.get('product_name', 'Unknown') for n in notifications]}")
+    print(f"🔄 Обработано: {len(notifications)} продуктов")
     
     # Сортируем по приоритету и скорингу
     try:
-        print(f"🔧 Начинаем сортировку...")
         notifications.sort(key=lambda x: (x.get('priority', 'low'), x.get('analysis_score', 0)), reverse=True)
-        print(f"🔄 Сортировка: OK")
     except Exception as e:
-        print(f"❌ ОШИБКА сортировки: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Ошибка сортировки: {e}")
     
-    print(f"🔧 После сортировки: {len(notifications)} уведомлений")
-
     print(f"🏆 Топ-3: {[n.get('product_name', 'Unknown') for n in notifications[:3]]}")
     
-    # Убеждаемся, что возвращаем список, даже если он пустой
     if not notifications:
-        print("⚠️ Нет уведомлений")
         return []
     
-    print(f"✅ Анализ завершен: {len(notifications)} уведомлений за {time.time() - start_time:.1f}с")
-    print(f"🔍 Возвращаем notifications: {type(notifications)}, длина: {len(notifications)}")
+    print(f"✅ Завершено за {time.time() - start_time:.1f}с")
     return notifications
 
 

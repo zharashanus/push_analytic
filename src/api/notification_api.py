@@ -315,15 +315,8 @@ class TestRandomClient(Resource):
             
             print(f"🎯 Анализируем клиента: {client_code}")
             
-            # Быстрый анализ только топ-5 продуктов
-            try:
-                from .analyzer import analyze_client_fast
-                notifications = analyze_client_fast(client_code, 90, db_manager)
-            except ImportError as e:
-                print(f"❌ Ошибка импорта: {e}")
-                # Используем старую функцию как запасной вариант
-                notifications = analyze_client_with_scenarios(client_code, 90, db_manager)
-                notifications = notifications[:5]  # Берем только топ-5
+            # Полный анализ всех продуктов
+            notifications = analyze_client_with_scenarios(client_code, 90, db_manager)
             
             print(f"📈 Получено: {len(notifications) if notifications else 0} уведомлений")
             
