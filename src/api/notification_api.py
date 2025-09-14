@@ -227,7 +227,7 @@ class AnalyzeClientAll(Resource):
                     {
                         'product': n.get('product_name', ''),
                         'push_notification': n.get('message', ''),
-                        'score': n.get('analysis_score', 0),
+                        'score': n.get('score', n.get('analysis_score', 0)),
                         'expected_benefit': n.get('expected_benefit', 0),
                         'priority': n.get('priority', 'low')
                     }
@@ -351,13 +351,18 @@ class TestRandomClient(Resource):
             top_recommendations = notifications[:3]
             print(f"🏆 Топ-3 рекомендации: {len(top_recommendations)}")
             
+            # Отладочная информация
+            if top_recommendations:
+                print(f"🔍 Первая рекомендация: {top_recommendations[0].keys()}")
+                print(f"🔍 Поля первой рекомендации: {top_recommendations[0]}")
+            
             result = {
                 'client_code': int(client_code),
                 'recommendations': [
                     {
                         'product': n.get('product_name', ''),
                         'push_notification': n.get('message', ''),
-                        'score': n.get('analysis_score', 0),
+                        'score': n.get('score', n.get('analysis_score', 0)),
                         'expected_benefit': n.get('expected_benefit', 0),
                         'priority': n.get('priority', 'low')
                     }
@@ -439,7 +444,7 @@ class TestSpecificClient(Resource):
                     {
                         'product': n.get('product_name', 'Неизвестный продукт'),
                         'push_notification': n.get('message', 'Сообщение не сгенерировано'),
-                        'score': float(n.get('analysis_score', 0)),
+                        'score': float(n.get('score', n.get('analysis_score', 0))),
                         'expected_benefit': float(n.get('expected_benefit', 0)),
                         'priority': n.get('priority', 'low')
                     }
