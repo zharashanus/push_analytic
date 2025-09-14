@@ -299,112 +299,57 @@ class TestRandomClient(Resource):
     @ns.marshal_with(error_model, code=500)
     @ns.doc(tags=['Тестирование'])
     def get(self):
-        """
-        Тестовый эндпоинт для анализа случайного клиента из БД
-        
-        Анализирует поведение случайного клиента по данным за 3 месяца,
-        вычисляет ожидаемую выгоду для клиента по каждому продукту,
-        выбирает самые полезные продукты,
-        генерирует персонализированные push-уведомления в корректном тоне (TOV).
-        """
+        """Быстрый анализ случайного клиента с таймаутом"""
         try:
-            print("🔍 Начинаем анализ случайного клиента...")
-            
             # Создаем реальный менеджер БД
             db_manager = RealDatabaseManager()
             
             if not db_manager.connection:
-                print("❌ Не удалось подключиться к БД")
                 return {'error': 'Не удалось подключиться к базе данных'}, 500
-            
-            print("✅ Подключение к БД установлено")
             
             # Получаем случайного клиента
             client_code = db_manager.get_random_client_code()
             if not client_code:
-                print("❌ Клиенты не найдены")
                 db_manager.close()
                 return {'error': 'Не найдено клиентов в базе данных'}, 400
             
-            print(f"🎯 Анализируем случайного клиента: {client_code}")
+            print(f"🎯 Анализируем клиента: {client_code}")
             
-            # Анализируем клиента за 3 месяца (90 дней)
-            print("📊 Запускаем анализ сценариев...")
-            try:
-                notifications = analyze_client_with_scenarios(client_code, 90, db_manager)
-                print(f"✅ analyze_client_with_scenarios завершена успешно")
-            except Exception as e:
-                print(f"❌ ОШИБКА в analyze_client_with_scenarios: {e}")
-                import traceback
-                traceback.print_exc()
-                notifications = []
+            # Быстрый анализ только топ-5 продуктов
+            from .analyzer import analyze_client_fast
+            notifications = analyze_client_fast(client_code, 90, db_manager)
             
-            print(f"📈 Получено уведомлений: {len(notifications) if notifications else 'None'}")
-            
-            if notifications is None:
-                print("❌ notifications is None")
-                db_manager.close()
-                return {'client_code': int(client_code), 'recommendations': []}
-            
-            if not notifications:
-                print("⚠️  Нет рекомендаций для клиента")
-                db_manager.close()
-                return {'client_code': int(client_code), 'recommendations': []}
-            
-            # Возвращаем топ-3 рекомендации
-            top_recommendations = notifications[:3]
-            print(f"🏆 Топ-3 рекомендации: {len(top_recommendations)}")
-            
-            # Создаем рекомендации
-            print(f"🔍 Создаем рекомендации из {len(top_recommendations)} уведомлений...")
-            
-            try:
-                recommendations = []
-                for i, n in enumerate(top_recommendations):
-                    rec = {
-                        'product': n.get('product_name', ''),
-                        'push_notification': n.get('message', ''),
-                        'score': n.get('score', n.get('analysis_score', 0)),
-                        'expected_benefit': n.get('expected_benefit', 0),
-                        'priority': n.get('priority', 'low')
-                    }
-                    recommendations.append(rec)
-                
-                print(f"✅ Создано рекомендаций: {len(recommendations)}")
-            except Exception as e:
-                print(f"❌ ОШИБКА при создании рекомендаций: {e}")
-                import traceback
-                traceback.print_exc()
-                recommendations = []
-            
-            # Создаем финальный результат
-            try:
-                client_code_int = int(client_code)
-            except Exception as e:
-                print(f"❌ Ошибка преобразования client_code: {e}")
-                client_code_int = 0
-            
-            result = {
-                'client_code': client_code_int,
-                'recommendations': recommendations
-            }
-            
-            print(f"📊 ФИНАЛЬНЫЙ РЕЗУЛЬТАТ: client_code={result['client_code']}, recommendations={len(result['recommendations'])}")
+            print(f"📈 Получено: {len(notifications) if notifications else 0} уведомлений")
             
             # Закрываем соединение
             db_manager.close()
-            print("✅ Анализ завершен успешно")
             
+            if not notifications:
+                return {'client_code': int(client_code), 'recommendations': []}
+            
+            # Создаем рекомендации
+            recommendations = []
+            for n in notifications[:3]:
+                rec = {
+                    'product': n.get('product_name', ''),
+                    'push_notification': n.get('message', ''),
+                    'score': n.get('score', n.get('analysis_score', 0)),
+                    'expected_benefit': n.get('expected_benefit', 0),
+                    'priority': n.get('priority', 'low')
+                }
+                recommendations.append(rec)
+            
+            result = {
+                'client_code': int(client_code),
+                'recommendations': recommendations
+            }
+            
+            print(f"📊 РЕЗУЛЬТАТ: {len(recommendations)} рекомендаций")
             return result
             
         except Exception as e:
-            print(f"❌ Ошибка в основном API endpoint: {str(e)}")
-            print(f"❌ Тип ошибки: {type(e).__name__}")
-            import traceback
-            print(f"❌ Полный traceback:")
-            traceback.print_exc()
-            print(f"❌ Возвращаем ошибку вместо null")
-            return {'error': f'Ошибка обработки запроса: {str(e)}'}, 500
+            print(f"❌ ОШИБКА: {str(e)}")
+            return {'error': f'Ошибка: {str(e)}'}, 500
 
 
 @ns.route('/test/client/<int:client_code>')
