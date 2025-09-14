@@ -233,6 +233,63 @@ class AnalyzeClientAll(Resource):
             return {'error': f'Ошибка обработки запроса: {str(e)}'}, 500
 
 
+@ns.route('/test/db-status')
+class TestDatabaseStatus(Resource):
+    def get(self):
+        """
+        Проверка статуса подключения к базе данных
+        """
+        try:
+            print("🔍 Проверяем подключение к БД...")
+            
+            db_manager = RealDatabaseManager()
+            
+            if not db_manager.connection:
+                return {
+                    'status': 'error',
+                    'message': 'Не удалось подключиться к базе данных',
+                    'connected': False
+                }, 500
+            
+            # Проверяем количество клиентов
+            try:
+                with db_manager.connection.cursor() as cursor:
+                    cursor.execute("SELECT COUNT(*) FROM \"Clients\"")
+                    client_count = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM \"Transactions\"")
+                    transaction_count = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM \"Transfers\"")
+                    transfer_count = cursor.fetchone()[0]
+                
+                db_manager.close()
+                
+                return {
+                    'status': 'success',
+                    'message': 'Подключение к БД установлено',
+                    'connected': True,
+                    'clients_count': client_count,
+                    'transactions_count': transaction_count,
+                    'transfers_count': transfer_count
+                }
+                
+            except Exception as e:
+                db_manager.close()
+                return {
+                    'status': 'error',
+                    'message': f'Ошибка выполнения запросов: {str(e)}',
+                    'connected': False
+                }, 500
+                
+        except Exception as e:
+            return {
+                'status': 'error',
+                'message': f'Ошибка подключения: {str(e)}',
+                'connected': False
+            }, 500
+
+
 @ns.route('/test/random-client')
 class TestRandomClient(Resource):
     @ns.marshal_with(all_analysis_response_model, code=200)
@@ -248,23 +305,35 @@ class TestRandomClient(Resource):
         генерирует персонализированные push-уведомления в корректном тоне (TOV).
         """
         try:
+            print("🔍 Начинаем анализ случайного клиента...")
+            
             # Создаем реальный менеджер БД
             db_manager = RealDatabaseManager()
             
             if not db_manager.connection:
+                print("❌ Не удалось подключиться к БД")
                 return {'error': 'Не удалось подключиться к базе данных'}, 500
+            
+            print("✅ Подключение к БД установлено")
             
             # Получаем случайного клиента
             client_code = db_manager.get_random_client_code()
             if not client_code:
+                print("❌ Клиенты не найдены")
+                db_manager.close()
                 return {'error': 'Не найдено клиентов в базе данных'}, 400
             
             print(f"🎯 Анализируем случайного клиента: {client_code}")
             
             # Анализируем клиента за 3 месяца (90 дней)
+            print("📊 Запускаем анализ сценариев...")
             notifications = analyze_client_with_scenarios(client_code, 90, db_manager)
             
+            print(f"📈 Получено уведомлений: {len(notifications)}")
+            
             if not notifications:
+                print("⚠️  Нет рекомендаций для клиента")
+                db_manager.close()
                 return {
                     'client_code': int(client_code),
                     'recommendations': []
@@ -272,6 +341,7 @@ class TestRandomClient(Resource):
             
             # Возвращаем топ-3 рекомендации
             top_recommendations = notifications[:3]
+            print(f"🏆 Топ-3 рекомендации: {len(top_recommendations)}")
             
             result = {
                 'client_code': int(client_code),
@@ -289,10 +359,12 @@ class TestRandomClient(Resource):
             
             # Закрываем соединение
             db_manager.close()
+            print("✅ Анализ завершен успешно")
             
             return result
             
         except Exception as e:
+            print(f"❌ Ошибка: {str(e)}")
             return {'error': f'Ошибка обработки запроса: {str(e)}'}, 500
 
 
@@ -514,6 +586,7 @@ class RealDatabaseManager:
     def get_random_client_code(self) -> str:
         """Получить случайный код клиента из БД"""
         if not self.connection:
+            print("❌ Нет подключения к БД")
             return None
         
         try:
@@ -526,9 +599,15 @@ class RealDatabaseManager:
                 """)
                 
                 result = cursor.fetchone()
-                return str(result[0]) if result else None
+                if result and result[0]:
+                    client_code = str(result[0])
+                    print(f"✅ Найден случайный клиент: {client_code}")
+                    return client_code
+                else:
+                    print("❌ Клиенты не найдены в БД")
+                    return None
         except Exception as e:
-            print(f"Ошибка получения случайного клиента: {e}")
+            print(f"❌ Ошибка получения случайного клиента: {e}")
             return None
     
     def close(self):
