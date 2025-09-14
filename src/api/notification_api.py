@@ -410,37 +410,28 @@ class TestSpecificClient(Resource):
             
             # Анализируем клиента за 3 месяца (90 дней)
             try:
-                print(f"🚀 Запускаем analyze_client_with_scenarios для клиента {client_code}")
+                print(f"🚀 Анализ клиента {client_code}...")
                 notifications = analyze_client_with_scenarios(str(client_code), 90, db_manager)
-                print(f"🚀 analyze_client_with_scenarios завершен, получено {len(notifications)} уведомлений")
-                print(f"🚀 Тип notifications: {type(notifications)}")
-                if notifications:
-                    print(f"🚀 Первое уведомление: {notifications[0] if notifications else 'Нет'}")
+                print(f"🚀 Результат: {len(notifications)} уведомлений")
             except Exception as e:
-                print(f"❌ Ошибка анализа клиента: {e}")
-                print(f"❌ Тип ошибки: {type(e).__name__}")
+                print(f"❌ ОШИБКА анализа: {type(e).__name__}: {e}")
                 import traceback
-                print(f"❌ Полный traceback:")
                 traceback.print_exc()
                 notifications = []
             
             # Закрываем соединение
-            print(f"🔒 Закрываем соединение с БД")
             db_manager.close()
-            print(f"🔒 Соединение закрыто")
             
             # Подготавливаем результат
             if not notifications:
-                print("⚠️ Уведомления не сгенерированы, возвращаем пустой список")
+                print("⚠️ Нет уведомлений")
                 return {
                     'client_code': int(client_code),
                     'recommendations': []
                 }
             
             # Возвращаем топ-3 рекомендации
-            print(f"🏆 Выбираем топ-3 рекомендации из {len(notifications)}")
             top_recommendations = notifications[:3]
-            print(f"🏆 Выбрано {len(top_recommendations)} рекомендаций")
             
             result = {
                 'client_code': int(client_code),
@@ -456,9 +447,7 @@ class TestSpecificClient(Resource):
                 ]
             }
             
-            print(f"✅ Результат подготовлен: {len(result['recommendations'])} рекомендаций")
-            print(f"📊 Первая рекомендация: {result['recommendations'][0] if result['recommendations'] else 'Нет'}")
-            print(f"📊 Полный результат: {result}")
+            print(f"✅ Готово: {len(result['recommendations'])} рекомендаций")
             return result
             
         except Exception as e:
@@ -470,13 +459,10 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
     from ..notifications.scenario_integration import ScenarioIntegration
     import time
     
-    print(f"🔍 Начинаем анализ клиента {client_code} за {days} дней")
-    print(f"🔧 Тип db_manager: {type(db_manager).__name__}")
-    print(f"🔧 Подключение к БД: {bool(db_manager.connection)}")
+    print(f"🔍 Анализ клиента {client_code} за {days} дней")
     start_time = time.time()
     
     integration = ScenarioIntegration()
-    print(f"🔧 Integration создан: {type(integration).__name__}")
     notifications = []
     
     scenarios = {
@@ -501,29 +487,18 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
                 print(f"⏰ Таймаут анализа достигнут, завершаем с {len(notifications)} уведомлениями")
                 break
                 
-            print(f"🔍 Анализируем продукт: {product_key}")
-            print(f"🔧 Тип сценария: {type(scenario).__name__}")
+            print(f"🔍 {product_key}...", end=" ")
             
             # Анализируем клиента
-            print(f"📊 Начинаем analyze_client для {product_key}")
             scenario_result = scenario.analyze_client(client_code, days, db_manager)
-            print(f"📈 Результат анализа {product_key}: score={scenario_result.get('score', 0)}, reasons={len(scenario_result.get('reasons', []))}")
             
             # Получаем данные клиента
-            print(f"👤 Получаем данные клиента для {product_key}")
             client_data = scenario.get_client_data(client_code, days, db_manager)
-            print(f"👤 Данные клиента получены: {bool(client_data)}")
-            if client_data:
-                print(f"👤 Данные клиента: {list(client_data.keys())}")
             
             # Генерируем уведомление
-            print(f"💬 Генерируем уведомление для {product_key}")
             notification = integration.generate_notification_from_scenario(
                 client_data, scenario_result, scenario.product_name
             )
-            print(f"💬 Уведомление сгенерировано: {bool(notification)}")
-            if notification:
-                print(f"💬 Ключи уведомления: {list(notification.keys())}")
             
             notification.update({
                 'client_code': client_code,
@@ -533,36 +508,34 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
             })
             
             notifications.append(notification)
-            print(f"✅ Продукт {product_key} добавлен в рекомендации")
-            print(f"📊 Всего уведомлений: {len(notifications)}")
-            print(f"🔄 Переходим к следующему продукту...")
+            print(f"✅")
             
         except Exception as e:
-            print(f"❌ Ошибка анализа продукта {product_key}: {e}")
-            print(f"❌ Тип ошибки: {type(e).__name__}")
+            print(f"❌ ОШИБКА в {product_key}: {type(e).__name__}: {e}")
             import traceback
-            print(f"❌ Полный traceback:")
             traceback.print_exc()
             # Продолжаем анализ других продуктов
             continue
     
-    print(f"🔄 Цикл анализа продуктов завершен")
-    print(f"📊 Всего уведомлений сгенерировано: {len(notifications)}")
+    print(f"🔄 Цикл завершен: {len(notifications)} уведомлений")
     
     # Сортируем по приоритету и скорингу
-    print(f"🔄 Сортируем уведомления...")
-    notifications.sort(key=lambda x: (x.get('priority', 'low'), x.get('analysis_score', 0)), reverse=True)
-    print(f"🔄 Сортировка завершена")
+    try:
+        notifications.sort(key=lambda x: (x.get('priority', 'low'), x.get('analysis_score', 0)), reverse=True)
+        print(f"🔄 Сортировка: OK")
+    except Exception as e:
+        print(f"❌ ОШИБКА сортировки: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
     
-    print(f"🏆 Топ-3 уведомления: {[n.get('product_name', 'Unknown') for n in notifications[:3]]}")
+    print(f"🏆 Топ-3: {[n.get('product_name', 'Unknown') for n in notifications[:3]]}")
     
     # Убеждаемся, что возвращаем список, даже если он пустой
     if not notifications:
-        print("⚠️ Уведомления не сгенерированы, возвращаем пустой список")
+        print("⚠️ Нет уведомлений")
         return []
     
-    print(f"✅ Анализ завершен успешно, возвращаем {len(notifications)} уведомлений")
-    print(f"⏱️ Время выполнения: {time.time() - start_time:.2f} секунд")
+    print(f"✅ Анализ завершен: {len(notifications)} уведомлений за {time.time() - start_time:.1f}с")
     return notifications
 
 
