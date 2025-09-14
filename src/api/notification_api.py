@@ -340,6 +340,7 @@ class TestRandomClient(Resource):
             print(f"📈 Получено уведомлений: {len(notifications) if notifications else 'None'}")
             print(f"🔍 Тип notifications: {type(notifications)}")
             print(f"🔍 analyze_client_with_scenarios завершена")
+            print(f"🔍 Содержимое notifications: {notifications}")
             
             if notifications is None:
                 print("❌ notifications is None - ошибка в analyze_client_with_scenarios")
@@ -425,11 +426,12 @@ class TestRandomClient(Resource):
             return result
             
         except Exception as e:
-            print(f"❌ Ошибка: {str(e)}")
+            print(f"❌ Ошибка в основном API endpoint: {str(e)}")
             print(f"❌ Тип ошибки: {type(e).__name__}")
             import traceback
             print(f"❌ Полный traceback:")
             traceback.print_exc()
+            print(f"❌ Возвращаем ошибку вместо null")
             return {'error': f'Ошибка обработки запроса: {str(e)}'}, 500
 
 
@@ -560,24 +562,45 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
             
             # Получаем данные клиента
             print(f"🔧 Получаем данные клиента для {product_key}...")
-            client_data = scenario.get_client_data(client_code, days, db_manager)
-            print(f"🔧 Данные клиента получены для {product_key}")
+            try:
+                client_data = scenario.get_client_data(client_code, days, db_manager)
+                print(f"🔧 Данные клиента получены для {product_key}: {type(client_data)}")
+            except Exception as e:
+                print(f"❌ ОШИБКА получения данных клиента для {product_key}: {e}")
+                raise
             
             # Генерируем уведомление
             print(f"🔧 Генерируем уведомление для {product_key}...")
-            notification = integration.generate_notification_from_scenario(
-                client_data, scenario_result, scenario.product_name
-            )
-            print(f"🔧 Уведомление сгенерировано для {product_key}: {notification}")
+            try:
+                notification = integration.generate_notification_from_scenario(
+                    client_data, scenario_result, scenario.product_name
+                )
+                print(f"🔧 Уведомление сгенерировано для {product_key}: {type(notification)}")
+            except Exception as e:
+                print(f"❌ ОШИБКА генерации уведомления для {product_key}: {e}")
+                raise
             
-            notification.update({
-                'client_code': client_code,
-                'product_key': product_key,
-                'analysis_score': scenario_result.get('score', 0),
-                'expected_benefit': scenario_result.get('expected_benefit', 0)
-            })
+            print(f"🔧 Обновляем уведомление для {product_key}...")
+            try:
+                notification.update({
+                    'client_code': client_code,
+                    'product_key': product_key,
+                    'analysis_score': scenario_result.get('score', 0),
+                    'expected_benefit': scenario_result.get('expected_benefit', 0)
+                })
+                print(f"🔧 Уведомление обновлено для {product_key}")
+            except Exception as e:
+                print(f"❌ ОШИБКА обновления уведомления для {product_key}: {e}")
+                raise
             
-            notifications.append(notification)
+            print(f"🔧 Добавляем уведомление в список для {product_key}...")
+            try:
+                notifications.append(notification)
+                print(f"🔧 Уведомление добавлено в список для {product_key}")
+            except Exception as e:
+                print(f"❌ ОШИБКА добавления уведомления для {product_key}: {e}")
+                raise
+            
             print(f"✅ {product_key} завершен")
             
         except Exception as e:
