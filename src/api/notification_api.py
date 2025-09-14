@@ -413,6 +413,9 @@ class TestSpecificClient(Resource):
                 print(f"🚀 Запускаем analyze_client_with_scenarios для клиента {client_code}")
                 notifications = analyze_client_with_scenarios(str(client_code), 90, db_manager)
                 print(f"🚀 analyze_client_with_scenarios завершен, получено {len(notifications)} уведомлений")
+                print(f"🚀 Тип notifications: {type(notifications)}")
+                if notifications:
+                    print(f"🚀 Первое уведомление: {notifications[0] if notifications else 'Нет'}")
             except Exception as e:
                 print(f"❌ Ошибка анализа клиента: {e}")
                 print(f"❌ Тип ошибки: {type(e).__name__}")
@@ -532,6 +535,7 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
             notifications.append(notification)
             print(f"✅ Продукт {product_key} добавлен в рекомендации")
             print(f"📊 Всего уведомлений: {len(notifications)}")
+            print(f"🔄 Переходим к следующему продукту...")
             
         except Exception as e:
             print(f"❌ Ошибка анализа продукта {product_key}: {e}")
@@ -542,6 +546,7 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
             # Продолжаем анализ других продуктов
             continue
     
+    print(f"🔄 Цикл анализа продуктов завершен")
     print(f"📊 Всего уведомлений сгенерировано: {len(notifications)}")
     
     # Сортируем по приоритету и скорингу
