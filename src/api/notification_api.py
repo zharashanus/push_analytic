@@ -335,11 +335,17 @@ class TestRandomClient(Resource):
             
             # Анализируем клиента за 3 месяца (90 дней)
             print("📊 Запускаем анализ сценариев...")
-            notifications = analyze_client_with_scenarios(client_code, 90, db_manager)
+            try:
+                notifications = analyze_client_with_scenarios(client_code, 90, db_manager)
+                print(f"✅ analyze_client_with_scenarios завершена успешно")
+            except Exception as e:
+                print(f"❌ ОШИБКА в analyze_client_with_scenarios: {e}")
+                import traceback
+                traceback.print_exc()
+                notifications = []
             
             print(f"📈 Получено уведомлений: {len(notifications) if notifications else 'None'}")
             print(f"🔍 Тип notifications: {type(notifications)}")
-            print(f"🔍 analyze_client_with_scenarios завершена")
             print(f"🔍 Содержимое notifications: {notifications}")
             
             if notifications is None:
@@ -610,18 +616,20 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
             # Продолжаем анализ других продуктов
             continue
     
-    print(f"🔄 Цикл завершен: {len(notifications)} уведомлений")
-    print(f"🔍 Список уведомлений: {[n.get('product_name', 'Unknown') for n in notifications]}")
-    
-    # Сортируем по приоритету и скорингу
-    try:
-        print(f"🔧 Начинаем сортировку...")
-        notifications.sort(key=lambda x: (x.get('priority', 'low'), x.get('analysis_score', 0)), reverse=True)
-        print(f"🔄 Сортировка: OK")
-    except Exception as e:
-        print(f"❌ ОШИБКА сортировки: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"🔄 Цикл завершен: {len(notifications)} уведомлений")
+        print(f"🔍 Список уведомлений: {[n.get('product_name', 'Unknown') for n in notifications]}")
+        
+        # Сортируем по приоритету и скорингу
+        try:
+            print(f"🔧 Начинаем сортировку...")
+            notifications.sort(key=lambda x: (x.get('priority', 'low'), x.get('analysis_score', 0)), reverse=True)
+            print(f"🔄 Сортировка: OK")
+        except Exception as e:
+            print(f"❌ ОШИБКА сортировки: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        print(f"🔧 После сортировки: {len(notifications)} уведомлений")
     
         print(f"🏆 Топ-3: {[n.get('product_name', 'Unknown') for n in notifications[:3]]}")
         
