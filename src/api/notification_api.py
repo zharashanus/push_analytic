@@ -357,19 +357,10 @@ class TestRandomClient(Resource):
 
 @ns.route('/test/client/<int:client_code>')
 class TestSpecificClient(Resource):
-    @ns.marshal_with(all_analysis_response_model, code=200)
-    @ns.marshal_with(error_model, code=400)
-    @ns.marshal_with(error_model, code=500)
     @ns.doc(tags=['Тестирование'])
     def get(self, client_code):
-        """
-        Тестовый эндпоинт для анализа конкретного клиента из БД
-        
-        Анализирует поведение указанного клиента по данным за 3 месяца,
-        вычисляет ожидаемую выгоду для клиента по каждому продукту,
-        выбирает самые полезные продукты,
-        генерирует персонализированные push-уведомления в корректном тоне (TOV).
-        """
+        """Анализ конкретного клиента из БД"""
+        print(f"🎯 Анализ клиента: {client_code}")
         try:
             # Создаем реальный менеджер БД
             db_manager = RealDatabaseManager()
@@ -383,52 +374,44 @@ class TestSpecificClient(Resource):
                 db_manager.close()
                 return {'error': f'Клиент с кодом {client_code} не найден'}, 400
             
-            print(f"🎯 Анализируем клиента: {client_code} ({client_info.get('name', 'Неизвестно')})")
+            print(f"👤 Клиент: {client_info.get('name', 'Неизвестно')}")
             
-            # Анализируем клиента за 3 месяца (90 дней)
-            try:
-                print(f"🚀 Анализ клиента {client_code}...")
-                notifications = analyze_client_with_scenarios(str(client_code), 90, db_manager)
-                print(f"🚀 Результат: {len(notifications)} уведомлений")
-            except Exception as e:
-                print(f"❌ ОШИБКА анализа: {type(e).__name__}: {e}")
-                import traceback
-                traceback.print_exc()
-                notifications = []
+            # Анализируем клиента
+            notifications = analyze_client_with_scenarios(str(client_code), 90, db_manager)
+            
+            print(f"📈 Получено: {len(notifications) if notifications else 0} уведомлений")
             
             # Закрываем соединение
             db_manager.close()
             
-            # Подготавливаем результат
             if not notifications:
-                print("⚠️ Нет уведомлений")
-                return {
-                    'client_code': int(client_code),
-                    'recommendations': []
-                }
+                return {'client_code': int(client_code), 'recommendations': []}
             
-            # Возвращаем топ-3 рекомендации
-            top_recommendations = notifications[:3]
+            # Создаем рекомендации
+            recommendations = []
+            for n in notifications[:3]:
+                rec = {
+                    'product': n.get('product_name', ''),
+                    'push_notification': n.get('message', ''),
+                    'score': n.get('score', n.get('analysis_score', 0)),
+                    'expected_benefit': n.get('expected_benefit', 0),
+                    'priority': n.get('priority', 'low')
+                }
+                recommendations.append(rec)
             
             result = {
                 'client_code': int(client_code),
-                'recommendations': [
-                    {
-                        'product': n.get('product_name', 'Неизвестный продукт'),
-                        'push_notification': n.get('message', 'Сообщение не сгенерировано'),
-                        'score': float(n.get('score', n.get('analysis_score', 0))),
-                        'expected_benefit': float(n.get('expected_benefit', 0)),
-                        'priority': n.get('priority', 'low')
-                    }
-                    for n in top_recommendations
-                ]
+                'recommendations': recommendations
             }
             
-            print(f"✅ Готово: {len(result['recommendations'])} рекомендаций")
+            print(f"📊 РЕЗУЛЬТАТ: {len(recommendations)} рекомендаций")
             return result
             
         except Exception as e:
-            return {'error': f'Ошибка обработки запроса: {str(e)}'}, 500
+            print(f"❌ ОШИБКА: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {'error': f'Ошибка: {str(e)}'}, 500
 
 
 if __name__ == '__main__':
