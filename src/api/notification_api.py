@@ -339,6 +339,7 @@ class TestRandomClient(Resource):
             
             print(f"📈 Получено уведомлений: {len(notifications) if notifications else 'None'}")
             print(f"🔍 Тип notifications: {type(notifications)}")
+            print(f"🔍 analyze_client_with_scenarios завершена")
             
             if notifications is None:
                 print("❌ notifications is None - ошибка в analyze_client_with_scenarios")
@@ -541,6 +542,7 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
         return []
     
     print(f"📊 Доступно сценариев: {len(scenarios)}")
+    print(f"🔍 Список сценариев: {list(scenarios.keys())}")
     
     for product_key, scenario in scenarios.items():
         try:
@@ -552,15 +554,21 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
             print(f"🔍 {product_key}...", end=" ")
             
             # Анализируем клиента
+            print(f"🔧 Анализируем сценарий {product_key}...")
             scenario_result = scenario.analyze_client(client_code, days, db_manager)
+            print(f"🔧 Сценарий {product_key} проанализирован: {scenario_result}")
             
             # Получаем данные клиента
+            print(f"🔧 Получаем данные клиента для {product_key}...")
             client_data = scenario.get_client_data(client_code, days, db_manager)
+            print(f"🔧 Данные клиента получены для {product_key}")
             
             # Генерируем уведомление
+            print(f"🔧 Генерируем уведомление для {product_key}...")
             notification = integration.generate_notification_from_scenario(
                 client_data, scenario_result, scenario.product_name
             )
+            print(f"🔧 Уведомление сгенерировано для {product_key}: {notification}")
             
             notification.update({
                 'client_code': client_code,
@@ -570,7 +578,7 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
             })
             
             notifications.append(notification)
-            print(f"✅")
+            print(f"✅ {product_key} завершен")
             
         except Exception as e:
             print(f"❌ ОШИБКА в {product_key}: {type(e).__name__}: {e}")
@@ -580,9 +588,11 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
             continue
     
     print(f"🔄 Цикл завершен: {len(notifications)} уведомлений")
+    print(f"🔍 Список уведомлений: {[n.get('product_name', 'Unknown') for n in notifications]}")
     
     # Сортируем по приоритету и скорингу
     try:
+        print(f"🔧 Начинаем сортировку...")
         notifications.sort(key=lambda x: (x.get('priority', 'low'), x.get('analysis_score', 0)), reverse=True)
         print(f"🔄 Сортировка: OK")
     except Exception as e:
