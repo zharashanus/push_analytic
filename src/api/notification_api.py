@@ -436,6 +436,8 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
     """Анализ клиента с использованием всех сценариев"""
     from ..notifications.scenario_integration import ScenarioIntegration
     
+    print(f"🔍 Начинаем анализ клиента {client_code} за {days} дней")
+    
     integration = ScenarioIntegration()
     notifications = []
     
@@ -452,18 +454,25 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
         'cash_credit': CashCreditScenario()
     }
     
+    print(f"📊 Доступно сценариев: {len(scenarios)}")
+    
     for product_key, scenario in scenarios.items():
         try:
+            print(f"🔍 Анализируем продукт: {product_key}")
+            
             # Анализируем клиента
             scenario_result = scenario.analyze_client(client_code, days, db_manager)
+            print(f"📈 Результат анализа {product_key}: score={scenario_result.get('score', 0)}, reasons={len(scenario_result.get('reasons', []))}")
             
             # Получаем данные клиента
             client_data = scenario.get_client_data(client_code, days, db_manager)
+            print(f"👤 Данные клиента получены: {bool(client_data)}")
             
             # Генерируем уведомление
             notification = integration.generate_notification_from_scenario(
                 client_data, scenario_result, scenario.product_name
             )
+            print(f"💬 Уведомление сгенерировано: {bool(notification)}")
             
             notification.update({
                 'client_code': client_code,
@@ -473,13 +482,20 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
             })
             
             notifications.append(notification)
+            print(f"✅ Продукт {product_key} добавлен в рекомендации")
             
         except Exception as e:
-            print(f"Ошибка анализа продукта {product_key}: {e}")
+            print(f"❌ Ошибка анализа продукта {product_key}: {e}")
+            import traceback
+            traceback.print_exc()
             continue
+    
+    print(f"📊 Всего уведомлений сгенерировано: {len(notifications)}")
     
     # Сортируем по приоритету и скорингу
     notifications.sort(key=lambda x: (x['priority'], x['analysis_score']), reverse=True)
+    
+    print(f"🏆 Топ-3 уведомления: {[n.get('product_name', 'Unknown') for n in notifications[:3]]}")
     
     return notifications
 

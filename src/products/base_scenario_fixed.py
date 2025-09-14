@@ -34,16 +34,24 @@ class BaseProductScenario(ABC):
     
     def get_client_data(self, client_code: str, days: int, db_manager) -> Dict[str, Any]:
         """Получить данные клиента для анализа"""
+        print(f"🔍 Получаем данные клиента {client_code} за {days} дней")
+        
         # Получаем информацию о клиенте
         client_info = db_manager.get_client_by_code(client_code)
+        print(f"👤 Информация о клиенте: {bool(client_info)}")
         if not client_info:
+            print("❌ Клиент не найден в БД")
             return {}
+        
+        print(f"👤 Клиент: {client_info.get('name', 'Unknown')}, баланс: {client_info.get('avg_monthly_balance_KZT', 0)}")
         
         # Получаем транзакции
         transactions = self._get_transactions_period(client_code, days, db_manager)
+        print(f"💳 Транзакций получено: {len(transactions)}")
         
         # Получаем переводы
         transfers = self._get_transfers_period(client_code, days, db_manager)
+        print(f"💸 Переводов получено: {len(transfers)}")
         
         return {
             'client_info': client_info,

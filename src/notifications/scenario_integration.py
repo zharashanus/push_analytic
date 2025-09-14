@@ -29,25 +29,32 @@ class ScenarioIntegration:
         Returns:
             Персонализированное уведомление
         """
+        print(f"💬 Генерируем уведомление для продукта: {product_name}")
+        
         client_info = client_data.get('client_info', {})
         client_name = client_info.get('name', 'Клиент')
+        print(f"👤 Имя клиента: {client_name}")
         
         # Извлекаем данные из сценария
         score = scenario_result.get('score', 0)
         reasons = scenario_result.get('reasons', [])
         expected_benefit = scenario_result.get('expected_benefit', 0)
+        print(f"📊 Скор: {score}, причины: {len(reasons)}, выгода: {expected_benefit}")
         
         # Определяем тип продукта
         product_type = self._map_product_to_type(product_name)
+        print(f"🏷️ Тип продукта: {product_type}")
         
         # Генерируем персонализированное сообщение
         message = self._generate_personalized_message(
             client_name, product_type, client_data, 
             scenario_result, expected_benefit
         )
+        print(f"💬 Сообщение сгенерировано: {message[:50]}...")
         
         # Валидируем сообщение
         validated_message = self._validate_message(message)
+        print(f"✅ Сообщение валидировано: {len(validated_message)} символов")
         
         return {
             'message': validated_message,

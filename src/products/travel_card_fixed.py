@@ -38,8 +38,11 @@ class TravelCardScenario(BaseProductScenario):
         Анализ соответствия клиента карте путешествий
         Основан на исследованиях потребительского поведения
         """
+        print(f"✈️ Анализируем клиента {client_code} для карты путешествий")
+        
         client_data = self.get_client_data(client_code, days, db_manager)
         if not client_data:
+            print("❌ Данные клиента не получены")
             return self.format_analysis_result(0, ['Клиент не найден'], 0)
         
         reasons = []
@@ -48,29 +51,34 @@ class TravelCardScenario(BaseProductScenario):
         # 1. Анализ статуса клиента (вместо возраста)
         status_score = self._analyze_client_status(client_data)
         score += status_score * 0.2
+        print(f"📋 Статусный скор: {status_score}")
         if status_score > 0.7:
             reasons.append('Подходящий статус клиента для карты путешествий')
         
         # 2. Базовый скор по балансу (финансовая стабильность)
         base_score = self.calculate_basic_score(client_data)
         score += base_score * 0.25
+        print(f"💰 Базовый скор: {base_score}")
         if base_score > 0.5:
             reasons.append('Достаточный баланс для карты')
         
         # 3. Анализ трат на путешествия (ключевой фактор по исследованиям)
         travel_score = self._analyze_travel_spending(client_data)
         score += travel_score * 0.4
+        print(f"✈️ Тревел скор: {travel_score}")
         if travel_score > 0.3:
             reasons.append('Активные траты на путешествия и транспорт')
         
         # 4. Анализ регулярности поездок (паттерн поведения)
         regularity_score = self._analyze_travel_regularity(client_data)
         score += regularity_score * 0.15
+        print(f"📅 Регулярность скор: {regularity_score}")
         if regularity_score > 0.5:
             reasons.append('Регулярные поездки')
         
         # Нормализуем скор
         final_score = min(score, 1.0)
+        print(f"📊 Итоговый скор: {final_score}")
         
         # Дополнительные проверки на основе исследований
         if travel_score < 0.1:
@@ -85,6 +93,7 @@ class TravelCardScenario(BaseProductScenario):
                 reasons.append('Высокие траты на путешествия')
         
         expected_benefit = self.calculate_expected_benefit(client_data, final_score)
+        print(f"💎 Ожидаемая выгода: {expected_benefit}")
         
         return self.format_analysis_result(final_score, reasons, expected_benefit)
     
