@@ -347,9 +347,15 @@ class TestRandomClient(Resource):
                     'recommendations': []
                 }
             
+            print(f"🔍 Уведомления получены: {len(notifications)}")
+            print(f"🔍 Тип notifications: {type(notifications)}")
+            print(f"🔍 Первое уведомление: {notifications[0] if notifications else 'None'}")
+            
             # Возвращаем топ-3 рекомендации
             top_recommendations = notifications[:3]
             print(f"🏆 Топ-3 рекомендации: {len(top_recommendations)}")
+            print(f"🔍 Тип top_recommendations: {type(top_recommendations)}")
+            print(f"🔍 Длина top_recommendations: {len(top_recommendations) if top_recommendations else 'None'}")
             
             # Отладочная информация
             if top_recommendations:
@@ -359,24 +365,45 @@ class TestRandomClient(Resource):
                 print(f"🔍 Analysis_score из первой рекомендации: {top_recommendations[0].get('analysis_score')}")
             
             # Создаем рекомендации с отладкой
+            print(f"🔍 Начинаем создание рекомендаций...")
             recommendations = []
             for i, n in enumerate(top_recommendations):
-                rec = {
-                    'product': n.get('product_name', ''),
-                    'push_notification': n.get('message', ''),
-                    'score': n.get('score', n.get('analysis_score', 0)),
-                    'expected_benefit': n.get('expected_benefit', 0),
-                    'priority': n.get('priority', 'low')
-                }
-                print(f"🔍 Рекомендация {i+1}: {rec}")
-                recommendations.append(rec)
+                print(f"🔍 Обрабатываем рекомендацию {i+1}...")
+                print(f"🔍 Тип n: {type(n)}")
+                print(f"🔍 Ключи n: {n.keys() if isinstance(n, dict) else 'Not a dict'}")
+                
+                try:
+                    rec = {
+                        'product': n.get('product_name', ''),
+                        'push_notification': n.get('message', ''),
+                        'score': n.get('score', n.get('analysis_score', 0)),
+                        'expected_benefit': n.get('expected_benefit', 0),
+                        'priority': n.get('priority', 'low')
+                    }
+                    print(f"🔍 Рекомендация {i+1}: {rec}")
+                    recommendations.append(rec)
+                except Exception as e:
+                    print(f"❌ Ошибка при создании рекомендации {i+1}: {e}")
+                    print(f"❌ Данные n: {n}")
+                    raise
+            
+            print(f"🔍 Создаем финальный результат...")
+            print(f"🔍 client_code: {client_code}, тип: {type(client_code)}")
+            try:
+                client_code_int = int(client_code)
+                print(f"🔍 client_code_int: {client_code_int}")
+            except Exception as e:
+                print(f"❌ Ошибка преобразования client_code: {e}")
+                client_code_int = 0
             
             result = {
-                'client_code': int(client_code),
+                'client_code': client_code_int,
                 'recommendations': recommendations
             }
             
             print(f"📊 Финальный результат: {result}")
+            print(f"🔍 Тип результата: {type(result)}")
+            print(f"🔍 Ключи результата: {result.keys()}")
             
             # Закрываем соединение
             db_manager.close()
@@ -386,6 +413,10 @@ class TestRandomClient(Resource):
             
         except Exception as e:
             print(f"❌ Ошибка: {str(e)}")
+            print(f"❌ Тип ошибки: {type(e).__name__}")
+            import traceback
+            print(f"❌ Полный traceback:")
+            traceback.print_exc()
             return {'error': f'Ошибка обработки запроса: {str(e)}'}, 500
 
 
