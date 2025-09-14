@@ -2,13 +2,15 @@
 REST API для анализа клиентов и генерации уведомлений
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_restx import Api, Resource, fields, Namespace
 from flask_cors import CORS
 from typing import Dict, List, Any
 import json
 import random
 import psycopg2
+import csv
+import io
 from datetime import datetime, timedelta
 
 from ..notifications import NotificationPipeline
@@ -412,6 +414,181 @@ class TestSpecificClient(Resource):
             import traceback
             traceback.print_exc()
             return {'error': f'Ошибка: {str(e)}'}, 500
+
+
+@ns.route('/export/csv')
+class ExportCSV(Resource):
+    @ns.doc(tags=['Экспорт'])
+    def get(self):
+        """Экспорт рекомендаций в CSV формате"""
+        print("📊 Начинаем экспорт CSV...")
+        try:
+            # Создаем реальный менеджер БД
+            db_manager = RealDatabaseManager()
+            
+            if not db_manager.connection:
+                return {'error': 'Не удалось подключиться к базе данных'}, 500
+            
+            # Получаем список всех клиентов (ограничиваем 50 для демо)
+            try:
+                with db_manager.connection.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT client_code, name 
+                        FROM "Clients" 
+                        ORDER BY client_code 
+                        LIMIT 50
+                    """)
+                    clients = cursor.fetchall()
+            except Exception as e:
+                print(f"❌ Ошибка получения клиентов: {e}")
+                db_manager.close()
+                return {'error': 'Ошибка получения клиентов'}, 500
+            
+            print(f"👥 Найдено клиентов: {len(clients)}")
+            
+            # Создаем CSV в памяти
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Заголовки CSV
+            writer.writerow(['client_code', 'product', 'push_notification'])
+            
+            # Обрабатываем каждого клиента
+            for i, (client_code, client_name) in enumerate(clients):
+                try:
+                    print(f"📈 Обрабатываем клиента {i+1}/{len(clients)}: {client_code}")
+                    
+                    # Анализируем клиента (быстрый анализ)
+                    from .analyzer import analyze_client_fast
+                    notifications = analyze_client_fast(str(client_code), 90, db_manager)
+                    
+                    if notifications:
+                        # Берем лучшую рекомендацию
+                        best_notification = notifications[0]
+                        
+                        # Добавляем строку в CSV
+                        writer.writerow([
+                            client_code,
+                            best_notification.get('product_name', ''),
+                            best_notification.get('message', '')
+                        ])
+                    else:
+                        # Если нет рекомендаций
+                        writer.writerow([
+                            client_code,
+                            'Нет подходящих продуктов',
+                            f'{client_name}, у вас пока нет подходящих продуктов. Мы уведомим, когда появятся новые предложения.'
+                        ])
+                
+                except Exception as e:
+                    print(f"❌ Ошибка обработки клиента {client_code}: {e}")
+                    # Добавляем строку с ошибкой
+                    writer.writerow([
+                        client_code,
+                        'Ошибка анализа',
+                        f'{client_name}, произошла ошибка при анализе ваших данных.'
+                    ])
+                    continue
+            
+            # Закрываем соединение
+            db_manager.close()
+            
+            # Подготавливаем CSV для скачивания
+            csv_data = output.getvalue()
+            output.close()
+            
+            print(f"✅ CSV создан, размер: {len(csv_data)} символов")
+            
+            # Возвращаем CSV файл
+            response = Response(
+                csv_data,
+                mimetype='text/csv',
+                headers={
+                    'Content-Disposition': 'attachment; filename=recommendations.csv',
+                    'Content-Type': 'text/csv; charset=utf-8'
+                }
+            )
+            
+            return response
+            
+        except Exception as e:
+            print(f"❌ ОШИБКА экспорта CSV: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {'error': f'Ошибка экспорта: {str(e)}'}, 500
+
+
+@ns.route('/export/csv/client/<int:client_code>')
+class ExportSingleClientCSV(Resource):
+    @ns.doc(tags=['Экспорт'])
+    def get(self, client_code):
+        """Экспорт рекомендаций для одного клиента в CSV"""
+        print(f"📊 Экспорт CSV для клиента: {client_code}")
+        try:
+            # Создаем реальный менеджер БД
+            db_manager = RealDatabaseManager()
+            
+            if not db_manager.connection:
+                return {'error': 'Не удалось подключиться к базе данных'}, 500
+            
+            # Проверяем существование клиента
+            client_info = db_manager.get_client_by_code(str(client_code))
+            if not client_info:
+                db_manager.close()
+                return {'error': f'Клиент с кодом {client_code} не найден'}, 400
+            
+            client_name = client_info.get('name', 'Клиент')
+            
+            # Анализируем клиента
+            notifications = analyze_client_with_scenarios(str(client_code), 90, db_manager)
+            
+            # Закрываем соединение
+            db_manager.close()
+            
+            # Создаем CSV в памяти
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Заголовки CSV
+            writer.writerow(['client_code', 'product', 'push_notification'])
+            
+            if notifications:
+                # Добавляем топ-3 рекомендации
+                for notification in notifications[:3]:
+                    writer.writerow([
+                        client_code,
+                        notification.get('product_name', ''),
+                        notification.get('message', '')
+                    ])
+            else:
+                # Если нет рекомендаций
+                writer.writerow([
+                    client_code,
+                    'Нет подходящих продуктов',
+                    f'{client_name}, у вас пока нет подходящих продуктов. Мы уведомим, когда появятся новые предложения.'
+                ])
+            
+            # Подготавливаем CSV для скачивания
+            csv_data = output.getvalue()
+            output.close()
+            
+            print(f"✅ CSV создан для клиента {client_code}")
+            
+            # Возвращаем CSV файл
+            response = Response(
+                csv_data,
+                mimetype='text/csv',
+                headers={
+                    'Content-Disposition': f'attachment; filename=client_{client_code}_recommendations.csv',
+                    'Content-Type': 'text/csv; charset=utf-8'
+                }
+            )
+            
+            return response
+            
+        except Exception as e:
+            print(f"❌ ОШИБКА экспорта CSV: {str(e)}")
+            return {'error': f'Ошибка экспорта: {str(e)}'}, 500
 
 
 if __name__ == '__main__':
