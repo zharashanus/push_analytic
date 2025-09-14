@@ -4,6 +4,7 @@ REST API для анализа клиентов и генерации уведо
 
 from flask import Flask, request, jsonify
 from flask_restx import Api, Resource, fields, Namespace
+from flask_cors import CORS
 from typing import Dict, List, Any
 import json
 import random
@@ -22,14 +23,16 @@ from ..config.database import db_config
 
 app = Flask(__name__)
 
+# Настройка CORS
+CORS(app)
+
 # Настройка Swagger
 api = Api(
     app,
     version='1.0',
     title='Push Analytics API',
     description='API для анализа клиентов и генерации персонализированных уведомлений',
-    doc='/swagger/',
-    prefix='/api/v1'
+    doc='/swagger/'
 )
 
 # Добавляем маршруты для swagger.json
@@ -44,7 +47,7 @@ def api_swagger_json():
     return api.__schema__
 
 # Создаем namespace для API
-ns = Namespace('', description='Операции анализа клиентов')
+ns = Namespace('api', description='Операции анализа клиентов', path='/api/v1')
 api.add_namespace(ns)
 
 # Модели данных для Swagger
