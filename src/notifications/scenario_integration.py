@@ -264,10 +264,10 @@ class ScenarioIntegration:
         return {
             'name': client_name,
             'month': self.templates.format_date(datetime.now()),
-            'amount': '50 000 ₸',
-            'cashback': '2 000 ₸',
-            'balance': '1 000 000 ₸',
-            'profit': '150 000 ₸'
+            'amount': '50 000₸',
+            'cashback': '2 000₸',
+            'balance': '1 000 000₸',
+            'profit': '150 000₸'
         }
     
     def _validate_message(self, message: str) -> str:
@@ -289,6 +289,10 @@ class ScenarioIntegration:
         
         # Убираем лишние пробелы
         message = ' '.join(message.split())
+        
+        # Исправляем дублирование символа валюты
+        message = message.replace('₸ ₸', '₸')
+        message = message.replace('₸₸', '₸')
         
         return message
     

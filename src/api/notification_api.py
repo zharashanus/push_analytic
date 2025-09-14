@@ -400,9 +400,20 @@ class TestSpecificClient(Resource):
             print(f"🎯 Анализируем клиента: {client_code} ({client_info.get('name', 'Неизвестно')})")
             
             # Анализируем клиента за 3 месяца (90 дней)
-            notifications = analyze_client_with_scenarios(str(client_code), 90, db_manager)
+            try:
+                notifications = analyze_client_with_scenarios(str(client_code), 90, db_manager)
+            except Exception as e:
+                print(f"❌ Ошибка анализа клиента: {e}")
+                import traceback
+                traceback.print_exc()
+                notifications = []
             
+            # Закрываем соединение
+            db_manager.close()
+            
+            # Подготавливаем результат
             if not notifications:
+                print("⚠️ Уведомления не сгенерированы, возвращаем пустой список")
                 return {
                     'client_code': client_code,
                     'recommendations': []
@@ -415,19 +426,17 @@ class TestSpecificClient(Resource):
                 'client_code': client_code,
                 'recommendations': [
                     {
-                        'product': n.get('product_name', ''),
-                        'push_notification': n.get('message', ''),
-                        'score': n.get('analysis_score', 0),
-                        'expected_benefit': n.get('expected_benefit', 0),
+                        'product': n.get('product_name', 'Неизвестный продукт'),
+                        'push_notification': n.get('message', 'Сообщение не сгенерировано'),
+                        'score': float(n.get('analysis_score', 0)),
+                        'expected_benefit': float(n.get('expected_benefit', 0)),
                         'priority': n.get('priority', 'low')
                     }
                     for n in top_recommendations
                 ]
             }
             
-            # Закрываем соединение
-            db_manager.close()
-            
+            print(f"✅ Результат подготовлен: {len(result['recommendations'])} рекомендаций")
             return result
             
         except Exception as e:
@@ -495,11 +504,12 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
     print(f"📊 Всего уведомлений сгенерировано: {len(notifications)}")
     
     # Сортируем по приоритету и скорингу
-    notifications.sort(key=lambda x: (x['priority'], x['analysis_score']), reverse=True)
+    notifications.sort(key=lambda x: (x.get('priority', 'low'), x.get('analysis_score', 0)), reverse=True)
     
     print(f"🏆 Топ-3 уведомления: {[n.get('product_name', 'Unknown') for n in notifications[:3]]}")
     
-    return notifications
+    # Убеждаемся, что возвращаем список, даже если он пустой
+    return notifications if notifications else []
 
 
 class MockDatabaseManager:

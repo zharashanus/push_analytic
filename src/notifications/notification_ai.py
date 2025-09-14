@@ -249,12 +249,17 @@ class NotificationAI:
         # Убираем лишние пробелы
         message = ' '.join(message.split())
         
-        # Проверяем форматирование валюты (разряд и знак валюты отделяем пробелом)
-        message = message.replace('₸₸', '₸')
-        message = message.replace('₸', ' ₸').replace('  ₸', ' ₸')
-        
-        # Убираем лишние символы валюты
+        # Исправляем дублирование символа валюты
         message = message.replace('₸ ₸', '₸')
+        message = message.replace('₸₸', '₸')
+        
+        # Правильное форматирование валюты (пробел перед ₸)
+        # Сначала убираем все пробелы вокруг ₸
+        message = message.replace(' ₸', '₸').replace('₸ ', '₸')
+        # Затем добавляем пробел только перед ₸
+        message = message.replace('₸', ' ₸')
+        # Убираем двойные пробелы
+        message = message.replace('  ₸', ' ₸')
         
         return message
     
