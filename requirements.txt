@@ -1,8 +1,5 @@
-Flask==2.3.3
-Flask-SQLAlchemy==3.0.5
-Flask-CORS==4.0.0
-psycopg2-binary==2.9.7
-python-dotenv==1.0.0
-pandas==2.1.1
-numpy==1.24.3
-gunicorn==21.2.0
+Flask
+Flask-CORS
+python-dotenv
+gunicorn
+psycopg2-binary

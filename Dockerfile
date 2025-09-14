@@ -1,31 +1,28 @@
+# Используем официальный Python образ
 FROM python:3.11-slim
 
-# Set working directory
+# Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Install system dependencies
+# Устанавливаем системные зависимости
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
+# Копируем requirements.txt и устанавливаем зависимости
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Копируем код приложения
 COPY . .
 
-# Create non-root user
+# Создаем пользователя для безопасности
 RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
 USER app
 
-# Expose port
+# Открываем порт для Flask приложения
 EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5000/health || exit 1
-
-# Run the application
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "app:app"]
+# Команда запуска
+CMD ["python", "run_app.py"]

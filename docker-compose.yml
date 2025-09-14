@@ -1,27 +1,38 @@
-version: '3.8'
+version: '3.9'
 
 services:
+  # Flask приложение для аналитики (порт 7777)
   push_analytic:
     build: .
-    container_name: push_analytic
-    ports:
-      - "5000:5000"
+    command: python run_app.py
+    volumes:
+      - .:/app
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - FLASK_ENV=production
-      - FLASK_DEBUG=False
-    env_file:
-      - .env
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - FLASK_APP=src/api/notification_api.py
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - PGHOST=${PGHOST}
+      - PGDATABASE=${PGDATABASE}
+      - PGUSER=${PGUSER}
+      - PGPASSWORD=${PGPASSWORD}
+      - PGSSLMODE=${PGSSLMODE}
+      - PGCHANNELBINDING=${PGCHANNELBINDING}
+    ports:
+      - "7777:5000"  # push_analytic на порту 7777
     networks:
-      - push_analytic_network
+      - analytics-network
+
+  # Nginx для аналитики
+  push_analytic_nginx:
+    image: nginx:1.25
+    ports:
+      - "7778:80"  # Nginx на порту 7778 для push_analytic
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - push_analytic
+    networks:
+      - analytics-network
 
 networks:
-  push_analytic_network:
+  analytics-network:
     driver: bridge
