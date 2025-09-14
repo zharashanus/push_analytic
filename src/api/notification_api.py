@@ -29,6 +29,17 @@ api = Api(
     prefix='/api/v1'
 )
 
+# Добавляем маршруты для swagger.json
+@app.route('/swagger.json')
+def swagger_json():
+    """Swagger JSON definition"""
+    return api.as_json()
+
+@app.route('/api/v1/swagger.json')
+def api_swagger_json():
+    """API Swagger JSON definition"""
+    return api.as_json()
+
 # Создаем namespace для API
 ns = Namespace('analytics', description='Операции анализа клиентов')
 api.add_namespace(ns)
