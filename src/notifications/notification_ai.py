@@ -260,6 +260,10 @@ class NotificationAI:
         message = message.replace('₸', ' ₸')
         # Убираем двойные пробелы
         message = message.replace('  ₸', ' ₸')
+        # Убираем пробел в начале строки перед ₸
+        message = message.replace(' ₸', '₸')
+        # Возвращаем правильное форматирование
+        message = message.replace('₸', ' ₸')
         
         return message
     

@@ -415,7 +415,7 @@ class TestSpecificClient(Resource):
             if not notifications:
                 print("⚠️ Уведомления не сгенерированы, возвращаем пустой список")
                 return {
-                    'client_code': client_code,
+                    'client_code': int(client_code),
                     'recommendations': []
                 }
             
@@ -423,7 +423,7 @@ class TestSpecificClient(Resource):
             top_recommendations = notifications[:3]
             
             result = {
-                'client_code': client_code,
+                'client_code': int(client_code),
                 'recommendations': [
                     {
                         'product': n.get('product_name', 'Неизвестный продукт'),
@@ -437,6 +437,7 @@ class TestSpecificClient(Resource):
             }
             
             print(f"✅ Результат подготовлен: {len(result['recommendations'])} рекомендаций")
+            print(f"📊 Первая рекомендация: {result['recommendations'][0] if result['recommendations'] else 'Нет'}")
             return result
             
         except Exception as e:
@@ -446,8 +447,10 @@ class TestSpecificClient(Resource):
 def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> List[Dict[str, Any]]:
     """Анализ клиента с использованием всех сценариев"""
     from ..notifications.scenario_integration import ScenarioIntegration
+    import time
     
     print(f"🔍 Начинаем анализ клиента {client_code} за {days} дней")
+    start_time = time.time()
     
     integration = ScenarioIntegration()
     notifications = []
@@ -469,6 +472,11 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
     
     for product_key, scenario in scenarios.items():
         try:
+            # Проверяем таймаут (максимум 30 секунд)
+            if time.time() - start_time > 30:
+                print(f"⏰ Таймаут анализа достигнут, завершаем с {len(notifications)} уведомлениями")
+                break
+                
             print(f"🔍 Анализируем продукт: {product_key}")
             
             # Анализируем клиента
@@ -499,6 +507,7 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
             print(f"❌ Ошибка анализа продукта {product_key}: {e}")
             import traceback
             traceback.print_exc()
+            # Продолжаем анализ других продуктов
             continue
     
     print(f"📊 Всего уведомлений сгенерировано: {len(notifications)}")
@@ -509,7 +518,12 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
     print(f"🏆 Топ-3 уведомления: {[n.get('product_name', 'Unknown') for n in notifications[:3]]}")
     
     # Убеждаемся, что возвращаем список, даже если он пустой
-    return notifications if notifications else []
+    if not notifications:
+        print("⚠️ Уведомления не сгенерированы, возвращаем пустой список")
+        return []
+    
+    print(f"✅ Анализ завершен успешно, возвращаем {len(notifications)} уведомлений")
+    return notifications
 
 
 class MockDatabaseManager:

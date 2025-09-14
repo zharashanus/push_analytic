@@ -144,13 +144,13 @@ class MessageTemplates:
     def format_amount(self, amount: float) -> str:
         """Форматирование суммы в тенге согласно TOV (разряды — пробелы, дробная часть — запятая)"""
         if amount >= 1000000:
-            return f"{amount/1000000:.1f} млн ₸".replace('.', ',')
+            return f"{amount/1000000:.1f} млн₸".replace('.', ',')
         elif amount >= 1000:
             # Форматируем с пробелами как разделителями разрядов
             formatted = f"{amount:,.0f}".replace(',', ' ')
-            return f"{formatted} ₸"
+            return f"{formatted}₸"
         else:
-            return f"{amount:.0f} ₸"
+            return f"{amount:.0f}₸"
     
     def format_date(self, date: datetime) -> str:
         """Форматирование даты"""

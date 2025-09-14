@@ -294,6 +294,14 @@ class ScenarioIntegration:
         message = message.replace('₸ ₸', '₸')
         message = message.replace('₸₸', '₸')
         
+        # Правильное форматирование валюты (пробел перед ₸)
+        # Сначала убираем все пробелы вокруг ₸
+        message = message.replace(' ₸', '₸').replace('₸ ', '₸')
+        # Затем добавляем пробел только перед ₸
+        message = message.replace('₸', ' ₸')
+        # Убираем двойные пробелы
+        message = message.replace('  ₸', ' ₸')
+        
         return message
     
     def _calculate_priority(self, score: float, expected_benefit: float) -> str:
