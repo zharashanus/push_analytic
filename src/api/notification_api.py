@@ -6,7 +6,9 @@ from flask import Flask, request, jsonify
 from flask_restx import Api, Resource, fields, Namespace
 from typing import Dict, List, Any
 import json
-from datetime import datetime
+import random
+import psycopg2
+from datetime import datetime, timedelta
 
 from ..notifications import NotificationPipeline
 from ..products import (
@@ -15,6 +17,7 @@ from ..products import (
     SavingsDepositScenario, AccumulationDepositScenario,
     InvestmentsScenario, GoldBarsScenario, CashCreditScenario
 )
+from ..config.database import db_config
 
 
 app = Flask(__name__)
@@ -230,6 +233,133 @@ class AnalyzeClientAll(Resource):
             return {'error': f'Ошибка обработки запроса: {str(e)}'}, 500
 
 
+@ns.route('/test/random-client')
+class TestRandomClient(Resource):
+    @ns.marshal_with(all_analysis_response_model, code=200)
+    @ns.marshal_with(error_model, code=400)
+    @ns.marshal_with(error_model, code=500)
+    def get(self):
+        """
+        Тестовый эндпоинт для анализа случайного клиента из БД
+        
+        Анализирует поведение случайного клиента по данным за 3 месяца,
+        вычисляет ожидаемую выгоду для клиента по каждому продукту,
+        выбирает самые полезные продукты,
+        генерирует персонализированные push-уведомления в корректном тоне (TOV).
+        """
+        try:
+            # Создаем реальный менеджер БД
+            db_manager = RealDatabaseManager()
+            
+            if not db_manager.connection:
+                return {'error': 'Не удалось подключиться к базе данных'}, 500
+            
+            # Получаем случайного клиента
+            client_code = db_manager.get_random_client_code()
+            if not client_code:
+                return {'error': 'Не найдено клиентов в базе данных'}, 400
+            
+            print(f"🎯 Анализируем случайного клиента: {client_code}")
+            
+            # Анализируем клиента за 3 месяца (90 дней)
+            notifications = analyze_client_with_scenarios(client_code, 90, db_manager)
+            
+            if not notifications:
+                return {
+                    'client_code': int(client_code),
+                    'recommendations': []
+                }
+            
+            # Возвращаем топ-3 рекомендации
+            top_recommendations = notifications[:3]
+            
+            result = {
+                'client_code': int(client_code),
+                'recommendations': [
+                    {
+                        'product': n.get('product_name', ''),
+                        'push_notification': n.get('message', ''),
+                        'score': n.get('analysis_score', 0),
+                        'expected_benefit': n.get('expected_benefit', 0),
+                        'priority': n.get('priority', 'low')
+                    }
+                    for n in top_recommendations
+                ]
+            }
+            
+            # Закрываем соединение
+            db_manager.close()
+            
+            return result
+            
+        except Exception as e:
+            return {'error': f'Ошибка обработки запроса: {str(e)}'}, 500
+
+
+@ns.route('/test/random-client/<int:client_code>')
+class TestSpecificClient(Resource):
+    @ns.marshal_with(all_analysis_response_model, code=200)
+    @ns.marshal_with(error_model, code=400)
+    @ns.marshal_with(error_model, code=500)
+    def get(self, client_code):
+        """
+        Тестовый эндпоинт для анализа конкретного клиента из БД
+        
+        Анализирует поведение указанного клиента по данным за 3 месяца,
+        вычисляет ожидаемую выгоду для клиента по каждому продукту,
+        выбирает самые полезные продукты,
+        генерирует персонализированные push-уведомления в корректном тоне (TOV).
+        """
+        try:
+            # Создаем реальный менеджер БД
+            db_manager = RealDatabaseManager()
+            
+            if not db_manager.connection:
+                return {'error': 'Не удалось подключиться к базе данных'}, 500
+            
+            # Проверяем существование клиента
+            client_info = db_manager.get_client_by_code(str(client_code))
+            if not client_info:
+                db_manager.close()
+                return {'error': f'Клиент с кодом {client_code} не найден'}, 400
+            
+            print(f"🎯 Анализируем клиента: {client_code} ({client_info.get('name', 'Неизвестно')})")
+            
+            # Анализируем клиента за 3 месяца (90 дней)
+            notifications = analyze_client_with_scenarios(str(client_code), 90, db_manager)
+            
+            if not notifications:
+                return {
+                    'client_code': client_code,
+                    'recommendations': []
+                }
+            
+            # Возвращаем топ-3 рекомендации
+            top_recommendations = notifications[:3]
+            
+            result = {
+                'client_code': client_code,
+                'recommendations': [
+                    {
+                        'product': n.get('product_name', ''),
+                        'push_notification': n.get('message', ''),
+                        'score': n.get('analysis_score', 0),
+                        'expected_benefit': n.get('expected_benefit', 0),
+                        'priority': n.get('priority', 'low')
+                    }
+                    for n in top_recommendations
+                ]
+            }
+            
+            # Закрываем соединение
+            db_manager.close()
+            
+            return result
+            
+        except Exception as e:
+            return {'error': f'Ошибка обработки запроса: {str(e)}'}, 500
+
+
 def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> List[Dict[str, Any]]:
     """Анализ клиента с использованием всех сценариев"""
     from ..notifications.scenario_integration import ScenarioIntegration
@@ -303,6 +433,108 @@ class MockDatabaseManager:
         elif 'Transfers' in query:
             return self.transfers
         return []
+
+
+class RealDatabaseManager:
+    """Реальный менеджер базы данных для работы с Neon DB"""
+    
+    def __init__(self):
+        self.connection = None
+        self.connect()
+    
+    def connect(self):
+        """Подключение к базе данных"""
+        try:
+            self.connection = psycopg2.connect(
+                host=db_config.host,
+                port=db_config.port,
+                database=db_config.database,
+                user=db_config.user,
+                password=db_config.password,
+                sslmode=db_config.sslmode
+            )
+            print("✅ Подключение к базе данных установлено")
+        except Exception as e:
+            print(f"❌ Ошибка подключения к БД: {e}")
+            self.connection = None
+    
+    def get_client_by_code(self, client_code: str) -> Dict:
+        """Получить данные клиента из БД"""
+        if not self.connection:
+            return {}
+        
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT client_code, name, status, avg_monthly_balance_KZT, city, age
+                    FROM "Clients" 
+                    WHERE client_code = %s
+                """, (client_code,))
+                
+                result = cursor.fetchone()
+                if result:
+                    return {
+                        'client_code': result[0],
+                        'name': result[1],
+                        'status': result[2],
+                        'avg_monthly_balance_KZT': float(result[3]) if result[3] else 0,
+                        'city': result[4] or 'Алматы',
+                        'age': result[5] or 30
+                    }
+                return {}
+        except Exception as e:
+            print(f"Ошибка получения клиента: {e}")
+            return {}
+    
+    def execute_query(self, query: str, params: tuple) -> List[Dict]:
+        """Выполнить SQL запрос"""
+        if not self.connection:
+            return []
+        
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(query, params)
+                
+                # Получаем названия колонок
+                columns = [desc[0] for desc in cursor.description]
+                
+                # Преобразуем результаты в список словарей
+                results = []
+                for row in cursor.fetchall():
+                    row_dict = {}
+                    for i, value in enumerate(row):
+                        row_dict[columns[i]] = value
+                    results.append(row_dict)
+                
+                return results
+        except Exception as e:
+            print(f"Ошибка выполнения запроса: {e}")
+            return []
+    
+    def get_random_client_code(self) -> str:
+        """Получить случайный код клиента из БД"""
+        if not self.connection:
+            return None
+        
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT client_code 
+                    FROM "Clients" 
+                    ORDER BY RANDOM() 
+                    LIMIT 1
+                """)
+                
+                result = cursor.fetchone()
+                return str(result[0]) if result else None
+        except Exception as e:
+            print(f"Ошибка получения случайного клиента: {e}")
+            return None
+    
+    def close(self):
+        """Закрыть соединение с БД"""
+        if self.connection:
+            self.connection.close()
 
 
 if __name__ == '__main__':
