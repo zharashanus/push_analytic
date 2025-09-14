@@ -106,6 +106,7 @@ pipeline = NotificationPipeline()
 
 @ns.route('/health')
 class HealthCheck(Resource):
+    @ns.doc(tags=['Система'])
     def get(self):
         """
         Health check endpoint
@@ -121,6 +122,7 @@ class AnalyzeClient(Resource):
     @ns.marshal_with(analysis_response_model, code=200)
     @ns.marshal_with(error_model, code=400)
     @ns.marshal_with(error_model, code=500)
+    @ns.doc(tags=['Анализ'])
     def post(self):
         """
         Анализ клиента и генерация рекомендаций
@@ -186,6 +188,7 @@ class AnalyzeClientAll(Resource):
     @ns.marshal_with(all_analysis_response_model, code=200)
     @ns.marshal_with(error_model, code=400)
     @ns.marshal_with(error_model, code=500)
+    @ns.doc(tags=['Анализ'])
     def post(self):
         """
         Анализ клиента для всех продуктов
@@ -238,6 +241,7 @@ class AnalyzeClientAll(Resource):
 
 @ns.route('/test/db-status')
 class TestDatabaseStatus(Resource):
+    @ns.doc(tags=['Тестирование'])
     def get(self):
         """
         Проверка статуса подключения к базе данных
@@ -293,11 +297,12 @@ class TestDatabaseStatus(Resource):
             }, 500
 
 
-@ns.route('/test/random-client')
+@ns.route('/test/random')
 class TestRandomClient(Resource):
     @ns.marshal_with(all_analysis_response_model, code=200)
     @ns.marshal_with(error_model, code=400)
     @ns.marshal_with(error_model, code=500)
+    @ns.doc(tags=['Тестирование'])
     def get(self):
         """
         Тестовый эндпоинт для анализа случайного клиента из БД
@@ -373,11 +378,12 @@ class TestRandomClient(Resource):
             return {'error': f'Ошибка обработки запроса: {str(e)}'}, 500
 
 
-@ns.route('/test/random-client/<int:client_code>')
+@ns.route('/test/client/<int:client_code>')
 class TestSpecificClient(Resource):
     @ns.marshal_with(all_analysis_response_model, code=200)
     @ns.marshal_with(error_model, code=400)
     @ns.marshal_with(error_model, code=500)
+    @ns.doc(tags=['Тестирование'])
     def get(self, client_code):
         """
         Тестовый эндпоинт для анализа конкретного клиента из БД
