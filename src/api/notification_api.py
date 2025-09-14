@@ -355,19 +355,25 @@ class TestRandomClient(Resource):
             if top_recommendations:
                 print(f"🔍 Первая рекомендация: {top_recommendations[0].keys()}")
                 print(f"🔍 Поля первой рекомендации: {top_recommendations[0]}")
+                print(f"🔍 Score из первой рекомендации: {top_recommendations[0].get('score')}")
+                print(f"🔍 Analysis_score из первой рекомендации: {top_recommendations[0].get('analysis_score')}")
+            
+            # Создаем рекомендации с отладкой
+            recommendations = []
+            for i, n in enumerate(top_recommendations):
+                rec = {
+                    'product': n.get('product_name', ''),
+                    'push_notification': n.get('message', ''),
+                    'score': n.get('score', n.get('analysis_score', 0)),
+                    'expected_benefit': n.get('expected_benefit', 0),
+                    'priority': n.get('priority', 'low')
+                }
+                print(f"🔍 Рекомендация {i+1}: {rec}")
+                recommendations.append(rec)
             
             result = {
                 'client_code': int(client_code),
-                'recommendations': [
-                    {
-                        'product': n.get('product_name', ''),
-                        'push_notification': n.get('message', ''),
-                        'score': n.get('score', n.get('analysis_score', 0)),
-                        'expected_benefit': n.get('expected_benefit', 0),
-                        'priority': n.get('priority', 'low')
-                    }
-                    for n in top_recommendations
-                ]
+                'recommendations': recommendations
             }
             
             print(f"📊 Финальный результат: {result}")
