@@ -3,6 +3,7 @@ REST API для анализа клиентов и генерации уведо
 """
 
 from flask import Flask, request, jsonify
+from flask_restx import Api, Resource, fields, Namespace
 from typing import Dict, List, Any
 import json
 from datetime import datetime
@@ -18,129 +19,213 @@ from ..products import (
 
 app = Flask(__name__)
 
+# Настройка Swagger
+api = Api(
+    app,
+    version='1.0',
+    title='Push Analytics API',
+    description='API для анализа клиентов и генерации персонализированных уведомлений',
+    doc='/swagger/',
+    prefix='/api/v1'
+)
+
+# Создаем namespace для API
+ns = Namespace('analytics', description='Операции анализа клиентов')
+api.add_namespace(ns)
+
+# Модели данных для Swagger
+client_model = api.model('Client', {
+    'client_code': fields.Integer(required=True, description='Код клиента'),
+    'name': fields.String(required=True, description='Имя клиента'),
+    'status': fields.String(required=True, description='Статус клиента'),
+    'avg_monthly_balance_KZT': fields.Float(required=True, description='Средний месячный баланс в тенге'),
+    'city': fields.String(description='Город клиента'),
+    'age': fields.Integer(description='Возраст клиента'),
+    'transactions': fields.List(fields.Raw, description='Список транзакций'),
+    'transfers': fields.List(fields.Raw, description='Список переводов')
+})
+
+transaction_model = api.model('Transaction', {
+    'date': fields.String(required=True, description='Дата транзакции'),
+    'category': fields.String(required=True, description='Категория транзакции'),
+    'amount': fields.Float(required=True, description='Сумма транзакции'),
+    'currency': fields.String(required=True, description='Валюта транзакции')
+})
+
+transfer_model = api.model('Transfer', {
+    'date': fields.String(required=True, description='Дата перевода'),
+    'type': fields.String(required=True, description='Тип перевода'),
+    'direction': fields.String(required=True, description='Направление перевода'),
+    'amount': fields.Float(required=True, description='Сумма перевода'),
+    'currency': fields.String(required=True, description='Валюта перевода')
+})
+
+analysis_response_model = api.model('AnalysisResponse', {
+    'client_code': fields.Integer(description='Код клиента'),
+    'product': fields.String(description='Рекомендуемый продукт'),
+    'push_notification': fields.String(description='Текст push-уведомления'),
+    'score': fields.Float(description='Скор продукта'),
+    'expected_benefit': fields.Float(description='Ожидаемая выгода'),
+    'priority': fields.String(description='Приоритет рекомендации')
+})
+
+recommendation_model = api.model('Recommendation', {
+    'product': fields.String(description='Название продукта'),
+    'push_notification': fields.String(description='Текст push-уведомления'),
+    'score': fields.Float(description='Скор продукта'),
+    'expected_benefit': fields.Float(description='Ожидаемая выгода'),
+    'priority': fields.String(description='Приоритет рекомендации')
+})
+
+all_analysis_response_model = api.model('AllAnalysisResponse', {
+    'client_code': fields.Integer(description='Код клиента'),
+    'recommendations': fields.List(fields.Nested(recommendation_model), description='Список рекомендаций')
+})
+
+error_model = api.model('Error', {
+    'error': fields.String(description='Описание ошибки')
+})
+
 # Инициализируем пайплайн
 pipeline = NotificationPipeline()
 
 
-@app.route('/analyze', methods=['POST'])
-def analyze_client():
-    """
-    Анализ клиента и генерация рекомендаций
-    
-    Пример запроса:
-    {
-        "client_code": 1,
-        "name": "Рамазан",
-        "status": "Зарплатный клиент",
-        "avg_monthly_balance_KZT": 240000,
-        "transactions": [
-            {"date": "2025-08-10", "category": "Такси", "amount": 27400, "currency": "KZT"},
-            {"date": "2025-08-12", "category": "Продукты питания", "amount": 44000, "currency": "KZT"}
-        ],
-        "transfers": [
-            {"date": "2025-08-01", "type": "salary_in", "direction": "in", "amount": 320000, "currency": "KZT"}
-        ]
-    }
-    """
-    try:
-        data = request.get_json()
+@ns.route('/health')
+class HealthCheck(Resource):
+    def get(self):
+        """
+        Health check endpoint
         
-        # Валидируем входные данные
-        if not data:
-            return jsonify({'error': 'Отсутствуют данные'}), 400
+        Проверяет работоспособность API
+        """
+        return {'status': 'healthy', 'service': 'push_analytics'}, 200
+
+
+@ns.route('/analyze')
+class AnalyzeClient(Resource):
+    @ns.expect(client_model)
+    @ns.marshal_with(analysis_response_model, code=200)
+    @ns.marshal_with(error_model, code=400)
+    @ns.marshal_with(error_model, code=500)
+    def post(self):
+        """
+        Анализ клиента и генерация рекомендаций
         
-        required_fields = ['client_code', 'name', 'status', 'avg_monthly_balance_KZT']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({'error': f'Отсутствует обязательное поле: {field}'}), 400
-        
-        # Создаем мок-данные для анализа (в реальности используем БД)
-        client_code = data['client_code']
-        client_info = {
-            'client_code': client_code,
-            'name': data['name'],
-            'status': data['status'],
-            'avg_monthly_balance_KZT': data['avg_monthly_balance_KZT'],
-            'city': data.get('city', 'Алматы'),
-            'age': data.get('age', 30)
-        }
-        
-        transactions = data.get('transactions', [])
-        transfers = data.get('transfers', [])
-        
-        # Создаем мок-менеджер БД
-        mock_db_manager = MockDatabaseManager(client_info, transactions, transfers)
-        
-        # Анализируем клиента
-        notifications = analyze_client_with_scenarios(client_code, 90, mock_db_manager)
-        
-        # Получаем лучшую рекомендацию
-        if not notifications:
-            return jsonify({
+        Анализирует данные клиента и возвращает лучшую рекомендацию продукта
+        с персонализированным push-уведомлением.
+        """
+        try:
+            data = request.get_json()
+            
+            # Валидируем входные данные
+            if not data:
+                return {'error': 'Отсутствуют данные'}, 400
+            
+            required_fields = ['client_code', 'name', 'status', 'avg_monthly_balance_KZT']
+            for field in required_fields:
+                if field not in data:
+                    return {'error': f'Отсутствует обязательное поле: {field}'}, 400
+            
+            # Создаем мок-данные для анализа (в реальности используем БД)
+            client_code = data['client_code']
+            client_info = {
                 'client_code': client_code,
-                'product': 'Нет подходящих продуктов',
-                'push_notification': 'У вас пока нет подходящих продуктов. Мы уведомим, когда появятся новые предложения.'
-            })
-        
-        best_notification = notifications[0]
-        
-        return jsonify({
-            'client_code': client_code,
-            'product': best_notification.get('product_name', ''),
-            'push_notification': best_notification.get('message', ''),
-            'score': best_notification.get('analysis_score', 0),
-            'expected_benefit': best_notification.get('expected_benefit', 0),
-            'priority': best_notification.get('priority', 'low')
-        })
-        
-    except Exception as e:
-        return jsonify({'error': f'Ошибка обработки запроса: {str(e)}'}), 500
-
-
-@app.route('/analyze/all', methods=['POST'])
-def analyze_client_all():
-    """Анализ клиента для всех продуктов"""
-    try:
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': 'Отсутствуют данные'}), 400
-        
-        client_code = data['client_code']
-        client_info = {
-            'client_code': client_code,
-            'name': data['name'],
-            'status': data['status'],
-            'avg_monthly_balance_KZT': data['avg_monthly_balance_KZT'],
-            'city': data.get('city', 'Алматы'),
-            'age': data.get('age', 30)
-        }
-        
-        transactions = data.get('transactions', [])
-        transfers = data.get('transfers', [])
-        
-        mock_db_manager = MockDatabaseManager(client_info, transactions, transfers)
-        notifications = analyze_client_with_scenarios(client_code, 90, mock_db_manager)
-        
-        # Возвращаем топ-4 рекомендации
-        top_recommendations = notifications[:4]
-        
-        return jsonify({
-            'client_code': client_code,
-            'recommendations': [
-                {
-                    'product': n.get('product_name', ''),
-                    'push_notification': n.get('message', ''),
-                    'score': n.get('analysis_score', 0),
-                    'expected_benefit': n.get('expected_benefit', 0),
-                    'priority': n.get('priority', 'low')
+                'name': data['name'],
+                'status': data['status'],
+                'avg_monthly_balance_KZT': data['avg_monthly_balance_KZT'],
+                'city': data.get('city', 'Алматы'),
+                'age': data.get('age', 30)
+            }
+            
+            transactions = data.get('transactions', [])
+            transfers = data.get('transfers', [])
+            
+            # Создаем мок-менеджер БД
+            mock_db_manager = MockDatabaseManager(client_info, transactions, transfers)
+            
+            # Анализируем клиента
+            notifications = analyze_client_with_scenarios(client_code, 90, mock_db_manager)
+            
+            # Получаем лучшую рекомендацию
+            if not notifications:
+                return {
+                    'client_code': client_code,
+                    'product': 'Нет подходящих продуктов',
+                    'push_notification': 'У вас пока нет подходящих продуктов. Мы уведомим, когда появятся новые предложения.',
+                    'score': 0,
+                    'expected_benefit': 0,
+                    'priority': 'low'
                 }
-                for n in top_recommendations
-            ]
-        })
+            
+            best_notification = notifications[0]
+            
+            return {
+                'client_code': client_code,
+                'product': best_notification.get('product_name', ''),
+                'push_notification': best_notification.get('message', ''),
+                'score': best_notification.get('analysis_score', 0),
+                'expected_benefit': best_notification.get('expected_benefit', 0),
+                'priority': best_notification.get('priority', 'low')
+            }
+            
+        except Exception as e:
+            return {'error': f'Ошибка обработки запроса: {str(e)}'}, 500
+
+
+@ns.route('/analyze/all')
+class AnalyzeClientAll(Resource):
+    @ns.expect(client_model)
+    @ns.marshal_with(all_analysis_response_model, code=200)
+    @ns.marshal_with(error_model, code=400)
+    @ns.marshal_with(error_model, code=500)
+    def post(self):
+        """
+        Анализ клиента для всех продуктов
         
-    except Exception as e:
-        return jsonify({'error': f'Ошибка обработки запроса: {str(e)}'}), 500
+        Анализирует данные клиента и возвращает топ-4 рекомендации продуктов
+        с персонализированными push-уведомлениями.
+        """
+        try:
+            data = request.get_json()
+            
+            if not data:
+                return {'error': 'Отсутствуют данные'}, 400
+            
+            client_code = data['client_code']
+            client_info = {
+                'client_code': client_code,
+                'name': data['name'],
+                'status': data['status'],
+                'avg_monthly_balance_KZT': data['avg_monthly_balance_KZT'],
+                'city': data.get('city', 'Алматы'),
+                'age': data.get('age', 30)
+            }
+            
+            transactions = data.get('transactions', [])
+            transfers = data.get('transfers', [])
+            
+            mock_db_manager = MockDatabaseManager(client_info, transactions, transfers)
+            notifications = analyze_client_with_scenarios(client_code, 90, mock_db_manager)
+            
+            # Возвращаем топ-4 рекомендации
+            top_recommendations = notifications[:4]
+            
+            return {
+                'client_code': client_code,
+                'recommendations': [
+                    {
+                        'product': n.get('product_name', ''),
+                        'push_notification': n.get('message', ''),
+                        'score': n.get('analysis_score', 0),
+                        'expected_benefit': n.get('expected_benefit', 0),
+                        'priority': n.get('priority', 'low')
+                    }
+                    for n in top_recommendations
+                ]
+            }
+            
+        except Exception as e:
+            return {'error': f'Ошибка обработки запроса: {str(e)}'}, 500
 
 
 def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> List[Dict[str, Any]]:

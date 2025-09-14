@@ -3,3 +3,4 @@ Flask-CORS
 python-dotenv
 gunicorn
 psycopg2-binary
+flask-restx
