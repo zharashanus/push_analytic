@@ -56,52 +56,25 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
             print(f"🔍 {product_key}...", end=" ")
             
             # Анализируем клиента
-            print(f"🔧 Анализируем сценарий {product_key}...")
             scenario_result = scenario.analyze_client(client_code, days, db_manager)
-            print(f"🔧 Сценарий {product_key} проанализирован: {scenario_result}")
             
             # Получаем данные клиента
-            print(f"🔧 Получаем данные клиента для {product_key}...")
-            try:
-                client_data = scenario.get_client_data(client_code, days, db_manager)
-                print(f"🔧 Данные клиента получены для {product_key}: {type(client_data)}")
-            except Exception as e:
-                print(f"❌ ОШИБКА получения данных клиента для {product_key}: {e}")
-                raise
+            client_data = scenario.get_client_data(client_code, days, db_manager)
             
             # Генерируем уведомление
-            print(f"🔧 Генерируем уведомление для {product_key}...")
-            try:
-                notification = integration.generate_notification_from_scenario(
-                    client_data, scenario_result, scenario.product_name
-                )
-                print(f"🔧 Уведомление сгенерировано для {product_key}: {type(notification)}")
-            except Exception as e:
-                print(f"❌ ОШИБКА генерации уведомления для {product_key}: {e}")
-                raise
+            notification = integration.generate_notification_from_scenario(
+                client_data, scenario_result, scenario.product_name
+            )
             
-            print(f"🔧 Обновляем уведомление для {product_key}...")
-            try:
-                notification.update({
-                    'client_code': client_code,
-                    'product_key': product_key,
-                    'analysis_score': scenario_result.get('score', 0),
-                    'expected_benefit': scenario_result.get('expected_benefit', 0)
-                })
-                print(f"🔧 Уведомление обновлено для {product_key}")
-            except Exception as e:
-                print(f"❌ ОШИБКА обновления уведомления для {product_key}: {e}")
-                raise
+            notification.update({
+                'client_code': client_code,
+                'product_key': product_key,
+                'analysis_score': scenario_result.get('score', 0),
+                'expected_benefit': scenario_result.get('expected_benefit', 0)
+            })
             
-            print(f"🔧 Добавляем уведомление в список для {product_key}...")
-            try:
-                notifications.append(notification)
-                print(f"🔧 Уведомление добавлено в список для {product_key}")
-            except Exception as e:
-                print(f"❌ ОШИБКА добавления уведомления для {product_key}: {e}")
-                raise
-            
-            print(f"✅ {product_key} завершен")
+            notifications.append(notification)
+            print(f"✅ {product_key}")
             
         except Exception as e:
             print(f"❌ ОШИБКА в {product_key}: {type(e).__name__}: {e}")
