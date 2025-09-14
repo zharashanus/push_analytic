@@ -337,7 +337,16 @@ class TestRandomClient(Resource):
             print("📊 Запускаем анализ сценариев...")
             notifications = analyze_client_with_scenarios(client_code, 90, db_manager)
             
-            print(f"📈 Получено уведомлений: {len(notifications)}")
+            print(f"📈 Получено уведомлений: {len(notifications) if notifications else 'None'}")
+            print(f"🔍 Тип notifications: {type(notifications)}")
+            
+            if notifications is None:
+                print("❌ notifications is None - ошибка в analyze_client_with_scenarios")
+                db_manager.close()
+                return {
+                    'client_code': int(client_code),
+                    'recommendations': []
+                }
             
             if not notifications:
                 print("⚠️  Нет рекомендаций для клиента")
@@ -404,6 +413,9 @@ class TestRandomClient(Resource):
             print(f"📊 Финальный результат: {result}")
             print(f"🔍 Тип результата: {type(result)}")
             print(f"🔍 Ключи результата: {result.keys()}")
+            print(f"🔍 client_code в результате: {result.get('client_code')}")
+            print(f"🔍 recommendations в результате: {result.get('recommendations')}")
+            print(f"🔍 Тип recommendations: {type(result.get('recommendations'))}")
             
             # Закрываем соединение
             db_manager.close()
@@ -504,21 +516,29 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
     print(f"🔍 Анализ клиента {client_code} за {days} дней")
     start_time = time.time()
     
-    integration = ScenarioIntegration()
-    notifications = []
+    try:
+        integration = ScenarioIntegration()
+        notifications = []
+    except Exception as e:
+        print(f"❌ Ошибка инициализации ScenarioIntegration: {e}")
+        return []
     
-    scenarios = {
-        'travel_card': TravelCardScenario(),
-        'premium_card': PremiumCardScenario(),
-        'credit_card': CreditCardScenario(),
-        'currency_exchange': CurrencyExchangeScenario(),
-        'multi_currency_deposit': MultiCurrencyDepositScenario(),
-        'savings_deposit': SavingsDepositScenario(),
-        'accumulation_deposit': AccumulationDepositScenario(),
-        'investments': InvestmentsScenario(),
-        'gold_bars': GoldBarsScenario(),
-        'cash_credit': CashCreditScenario()
-    }
+    try:
+        scenarios = {
+            'travel_card': TravelCardScenario(),
+            'premium_card': PremiumCardScenario(),
+            'credit_card': CreditCardScenario(),
+            'currency_exchange': CurrencyExchangeScenario(),
+            'multi_currency_deposit': MultiCurrencyDepositScenario(),
+            'savings_deposit': SavingsDepositScenario(),
+            'accumulation_deposit': AccumulationDepositScenario(),
+            'investments': InvestmentsScenario(),
+            'gold_bars': GoldBarsScenario(),
+            'cash_credit': CashCreditScenario()
+        }
+    except Exception as e:
+        print(f"❌ Ошибка создания сценариев: {e}")
+        return []
     
     print(f"📊 Доступно сценариев: {len(scenarios)}")
     
@@ -577,8 +597,15 @@ def analyze_client_with_scenarios(client_code: str, days: int, db_manager) -> Li
         print("⚠️ Нет уведомлений")
         return []
     
-    print(f"✅ Анализ завершен: {len(notifications)} уведомлений за {time.time() - start_time:.1f}с")
-    return notifications
+        print(f"✅ Анализ завершен: {len(notifications)} уведомлений за {time.time() - start_time:.1f}с")
+        print(f"🔍 Возвращаем notifications: {type(notifications)}, длина: {len(notifications)}")
+        return notifications
+    
+    except Exception as e:
+        print(f"❌ Критическая ошибка в analyze_client_with_scenarios: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
 
 
 class MockDatabaseManager:
